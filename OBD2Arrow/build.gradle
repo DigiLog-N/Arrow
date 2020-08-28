@@ -1,0 +1,64 @@
+//
+// Gradle build file for OBD2Arrow project
+//
+
+apply plugin: 'java'
+
+// JAR settings
+// Specify ".doFirst" to force this to run in the Execution phase.  Without
+// this specification, this would be run during the Configuration phase, which
+// would fail if CTlib.jar didn't yet exist; at Execution phase, CTlib.jar
+// should have been created already.
+jar.doFirst {
+    // Create a "fat jar" file which includes all the dependencies; that way,
+    // the jar can be run stand-alone with none of the other dependency jars
+    // around.  The following was taken from a nice simple example found at:
+    // https://newfivefour.com/gradle-hello-world-java-fat-jar.html
+    // The "it" variable (kind of like "this" in Java) is a Groovy-ism which
+    // represents the implicit variable given to this closure, which I think is
+    // the project object.
+    from {
+        (configurations.runtime).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    
+    // Build up a string containing all the runtime dependencies; this will be
+    // used as the 'Class-Path' string in the manifest instead of hard-wiring
+    // library names
+    StringBuilder sb = new StringBuilder();
+    project.configurations.runtime.each {
+        sb.append(it.name + ' ')
+    }
+    String runtimeDependenciesStr = sb.toString().trim()
+    
+    manifest {
+        attributes 'Main-Class': 'erigo.obd2arrow.OBD2Arrow',
+                   'Class-Path': runtimeDependenciesStr
+    }
+}
+
+repositories {
+    flatDir {
+    	// Location of CTlib.jar
+    	ext.ctdev = System.getenv('ctdev')
+    	dirs "$ctdev"
+    }
+    mavenCentral()
+}
+
+dependencies {
+	// Specify that we use CTlib.jar
+    compile name: 'CTlib'
+    compile group: 'commons-cli', name: 'commons-cli', version: '1.3.1'
+    compile group: 'org.apache.arrow', name: 'arrow-java-root', version: '1.0.1'
+    compile group: 'org.apache.arrow', name: 'arrow-memory', version: '1.0.1'
+    compile group: 'org.apache.arrow', name: 'arrow-memory-core', version: '1.0.1'
+    compile group: 'org.apache.arrow', name: 'arrow-memory-unsafe', version: '1.0.1'
+    compile group: 'org.apache.arrow', name: 'arrow-format', version: '1.0.1'
+    compile group: 'org.apache.arrow', name: 'arrow-vector', version: '1.0.1'
+    // SLF4J logging API; code compiles/runs fine without these, but a warning is displayed at run time without them
+    compile 'org.slf4j:slf4j-api:1.7.30'
+    compile 'org.slf4j:slf4j-simple:1.7.30'
+
+}

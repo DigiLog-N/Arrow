@@ -1,0 +1,12 @@
+*.bak
+*.class
+*.apk
+*~
+.DS_Store
+.project
+.classpath
+bin/
+build/
+.gradle/
+.settings/
+JavaDoc/
