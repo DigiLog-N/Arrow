@@ -1,6 +1,6 @@
 
 #
-# Simple example to write out an Arrow file to disk and read it back in
+# Simple example to write an Arrow record batch to Plasma in-memory object store and then read it back out
 #
 # This is based on:
 # Plasma code: https://arrow.apache.org/docs/python/plasma.html
