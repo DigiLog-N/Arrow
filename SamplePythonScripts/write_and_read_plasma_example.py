@@ -2,7 +2,15 @@
 #
 # Simple example to write an Arrow record batch to Plasma in-memory object store and then read it back out
 #
-# This is based on:
+# In order to run this example:
+# 1. Plasma is only supported on Mac and Linux
+# 2. Must have Python version 3.5+
+# 3. Install PyArrow (https://arrow.apache.org/docs/python/install.html)
+#      e.g.  pip install pyarrow
+# 4. Start up a Plasma store
+#      e.g.  plasma_store -m 1000000000 -s /tmp/plasma
+#
+# This code is based on:
 # Plasma code: https://arrow.apache.org/docs/python/plasma.html
 # https://arrow.apache.org/docs/python/ipc.html
 # https://towardsdatascience.com/apache-arrow-read-dataframe-with-zero-memory-69634092b1a
