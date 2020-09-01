@@ -19,9 +19,8 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="74cacbcf-d305-48a7-a231-f5e0d8c0d8c5" name="Default Changelist" comment="">
+    <list default="true" id="74cacbcf-d305-48a7-a231-f5e0d8c0d8c5" name="Default Changelist" comment="tweak to comment in the Plasma example">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/write_and_read_plasma_example.py" beforeDir="false" afterPath="$PROJECT_DIR$/write_and_read_plasma_example.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,6 +104,14 @@
       <option name="presentableId" value="Default" />
       <updated>1598284309207</updated>
     </task>
+    <task id="LOCAL-00001" summary="tweak to comment in the Plasma example">
+      <created>1598988599072</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1598988599072</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -118,6 +125,10 @@
       </map>
     </option>
     <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="tweak to comment in the Plasma example" />
+    <option name="LAST_COMMIT_MESSAGE" value="tweak to comment in the Plasma example" />
   </component>
   <component name="WindowStateProjectService">
     <state x="2088" y="195" width="1092" height="714" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1598284583024">
@@ -168,5 +179,9 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="595" y="162" key="SettingsEditor/1920.31.1680.1010/0.0.1920.1040@0.0.1920.1040" timestamp="1598988521515" />
+    <state x="2349" y="288" key="Vcs.Push.Dialog.v2" timestamp="1598988609792">
+      <screen x="1920" y="31" width="1680" height="1010" />
+    </state>
+    <state x="2349" y="288" key="Vcs.Push.Dialog.v2/1920.31.1680.1010/0.0.1920.1040@1920.31.1680.1010" timestamp="1598988609792" />
   </component>
 </project>
