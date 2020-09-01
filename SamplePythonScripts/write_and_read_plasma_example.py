@@ -3,6 +3,7 @@
 # Simple example to write out an Arrow file to disk and read it back in
 #
 # This is based on:
+# Plasma code: https://arrow.apache.org/docs/python/plasma.html
 # https://arrow.apache.org/docs/python/ipc.html
 # https://towardsdatascience.com/apache-arrow-read-dataframe-with-zero-memory-69634092b1a
 #

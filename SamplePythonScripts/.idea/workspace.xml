@@ -20,9 +20,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="74cacbcf-d305-48a7-a231-f5e0d8c0d8c5" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/../ArrowTestJava/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../OBD2Arrow/.idea/OBD2Arrow.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../OBD2Arrow/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/write_and_read_plasma_example.py" beforeDir="false" afterPath="$PROJECT_DIR$/write_and_read_plasma_example.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,6 +40,12 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\johnw\user\DigiLog\DigiLog-N Repositories\Arrow\SamplePythonScripts" />
+    </key>
   </component>
   <component name="RunManager" selected="Python.arrow_reader_2">
     <configuration name="arrow_reader" type="PythonConfigurationType" factoryName="Python">
@@ -112,6 +117,7 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="WindowStateProjectService">
     <state x="2088" y="195" width="1092" height="714" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1598284583024">
@@ -158,5 +164,9 @@
       <screen x="1920" y="31" width="1680" height="1010" />
     </state>
     <state width="1559" height="402" key="GridCell.Tab.1.right/1920.31.1680.1010/0.0.1920.1040@1920.31.1680.1010" timestamp="1598563014174" />
+    <state x="595" y="162" key="SettingsEditor" timestamp="1598988521515">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="595" y="162" key="SettingsEditor/1920.31.1680.1010/0.0.1920.1040@0.0.1920.1040" timestamp="1598988521515" />
   </component>
 </project>
