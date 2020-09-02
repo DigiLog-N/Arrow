@@ -60,7 +60,7 @@ public class ArrowPlasmaTest {
 		byte[] value = new byte[20];
 		Arrays.fill(value, (byte) 97);
 		client.put(id, value, null);
-		client.seal(id);
+		//client.seal(id);
 
 		// Write a record batch to Plasma
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -94,7 +94,7 @@ public class ArrowPlasmaTest {
 		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
 		ByteBuffer plasmaBuf = client.create(id2,recordAsBytes.length,null);
 		client.put(id2,recordAsBytes,null);
-		client.seal(id2);
+		//client.seal(id2);
 
 		/*
 		// this is a try-with-resource block
