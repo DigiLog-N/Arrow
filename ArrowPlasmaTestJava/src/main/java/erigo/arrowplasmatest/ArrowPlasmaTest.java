@@ -89,7 +89,7 @@ public class ArrowPlasmaTest {
 			System.err.println(ioe);
 		}
 		byte[] id2 = new byte[20];
-		Arrays.fill(id, (byte) 2);
+		Arrays.fill(id2, (byte) 2);
 		byte[] recordAsBytes = out.toByteArray();
 		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
 		ByteBuffer plasmaBuf = client.create(id2,recordAsBytes.length,null);
