@@ -60,9 +60,9 @@ public class ArrowPlasmaTest {
 		byte[] value = new byte[20];
 		Arrays.fill(value, (byte) 97);
 		client.put(id, value, null);
+		client.seal(id);
 
 		// Write a record batch to Plasma
-		Arrays.fill(id, (byte) 2);
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
 		IntVector intVector = new IntVector("int",allocator);
 		VarCharVector varCharVector = new VarCharVector("varchar", allocator);
@@ -88,10 +88,13 @@ public class ArrowPlasmaTest {
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
+		byte[] id2 = new byte[20];
+		Arrays.fill(id, (byte) 2);
 		byte[] recordAsBytes = out.toByteArray();
-		ByteBuffer plasmaBuf = client.create(id,recordAsBytes.length,null);
-		client.put(id,plasmaBuf.array(),null);
-		client.seal(id);
+		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
+		ByteBuffer plasmaBuf = client.create(id2,recordAsBytes.length,null);
+		client.put(id2,recordAsBytes,null);
+		client.seal(id2);
 
 		/*
 		// this is a try-with-resource block
