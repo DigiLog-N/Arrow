@@ -27,8 +27,10 @@ Based on code snippets found at https://arrow.apache.org/docs/java/ipc.html
 
 package erigo.arrowplasmatest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -38,6 +40,8 @@ import org.apache.arrow.plasma.PlasmaClient;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.*;
 
 public class ArrowPlasmaTest {
@@ -48,6 +52,7 @@ public class ArrowPlasmaTest {
 	
 	public ArrowPlasmaTest(String[] arg) {
 
+		// Write out some bytes to Plasma
 		System.loadLibrary("plasma_java");
 		PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
 		byte[] id = new byte[20];
@@ -55,7 +60,9 @@ public class ArrowPlasmaTest {
 		byte[] value = new byte[20];
 		Arrays.fill(value, (byte) 97);
 		client.put(id, value, null);
-		
+
+		// Write a record batch to Plasma
+		Arrays.fill(id, (byte) 2);
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
 		IntVector intVector = new IntVector("int",allocator);
 		VarCharVector varCharVector = new VarCharVector("varchar", allocator);
@@ -73,6 +80,20 @@ public class ArrowPlasmaTest {
 		List<FieldVector> vectors = Arrays.asList(intVector, varCharVector, bitVector);
 		VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
+		try {
+			writer.start();
+			writer.writeBatch();
+		} catch (IOException ioe) {
+			System.err.println(ioe);
+		}
+		byte[] recordAsBytes = out.toByteArray();
+		ByteBuffer plasmaBuf = client.create(id,recordAsBytes.length,null);
+		client.put(id,plasmaBuf.array(),null);
+		client.seal(id);
+
+		/*
 		// this is a try-with-resource block
 		try (FileOutputStream fos = new FileOutputStream(".\\test.arrow");
 			 // Make the writer
@@ -103,6 +124,7 @@ public class ArrowPlasmaTest {
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
+		*/
 
 	}
 	
