@@ -47,7 +47,8 @@ public class ArrowPlasmaTest {
 	}
 	
 	public ArrowPlasmaTest(String[] arg) {
-		
+
+		System.loadLibrary("plasma_java");
 		PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
 		
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
