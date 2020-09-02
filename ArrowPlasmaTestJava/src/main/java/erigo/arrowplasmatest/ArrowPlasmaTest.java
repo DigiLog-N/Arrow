@@ -50,6 +50,11 @@ public class ArrowPlasmaTest {
 
 		System.loadLibrary("plasma_java");
 		PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
+		byte[] id = new byte[20];
+		Arrays.fill(id, (byte) 1);
+		byte[] value = new byte[20];
+		Arrays.fill(value, (byte) 97);
+		client.put(id, value, null);
 		
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
 		IntVector intVector = new IntVector("int",allocator);
