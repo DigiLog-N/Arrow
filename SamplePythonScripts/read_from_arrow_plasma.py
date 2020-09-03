@@ -26,15 +26,36 @@ for key in ids:
 
 id_list = list(ids.keys())
 
-# id = plasma.ObjectID(20 * b'\x01')
-id = id_list[0]
+# NOTE: The id's in the list aren't necessarily in the time-ordered order that Plasma received the objects in
+# id = id_list[0]
+id = plasma.ObjectID(20 * b'\x01')
+print(id)
 [data] = client.get_buffers([id])
 view = memoryview(data)
-bytes(view)
+print(bytes(view))
 
+id = plasma.ObjectID(20 * b'\x02')
+print(id)
+[data] = client.get_buffers([id])
+buffer = pa.BufferReader(data)
+reader = pa.RecordBatchStreamReader(buffer)
+table = reader.read_all()
+print(table.column('int'))
+print(table.column('varchar'))
+print(table.column('boolean'))
 
-# id = plasma.ObjectID(20 * b'\x02')
-id = id_list[1]
+id = plasma.ObjectID(20 * b'\x03')
+print(id)
+[data] = client.get_buffers([id])
+buffer = pa.BufferReader(data)
+reader = pa.RecordBatchStreamReader(buffer)
+table = reader.read_all()
+print(table.column('int'))
+print(table.column('varchar'))
+print(table.column('boolean'))
+
+id = plasma.ObjectID(20 * b'\x04')
+print(id)
 [data] = client.get_buffers([id])
 buffer = pa.BufferReader(data)
 reader = pa.RecordBatchStreamReader(buffer)
@@ -42,3 +63,4 @@ table = reader.read_all()
 table.column('int')
 table.column('varchar')
 table.column('boolean')
+
