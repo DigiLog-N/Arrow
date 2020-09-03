@@ -19,7 +19,7 @@
     <select />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="74cacbcf-d305-48a7-a231-f5e0d8c0d8c5" name="Default Changelist" comment="tweak to comment in the Plasma example">
+    <list default="true" id="74cacbcf-d305-48a7-a231-f5e0d8c0d8c5" name="Default Changelist" comment="add new Python test program to read data from Plasma">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -111,7 +111,35 @@
       <option name="project" value="LOCAL" />
       <updated>1598988599072</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="change how data is accessed from the pyarrow.Table">
+      <created>1598990053715</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1598990053715</updated>
+    </task>
+    <task id="LOCAL-00003" summary="tweak comment in header">
+      <created>1598991588610</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1598991588610</updated>
+    </task>
+    <task id="LOCAL-00004" summary="change more comments in the header">
+      <created>1598991871618</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1598991871618</updated>
+    </task>
+    <task id="LOCAL-00005" summary="add new Python test program to read data from Plasma">
+      <created>1599086800533</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1599086800533</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -128,7 +156,11 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="tweak to comment in the Plasma example" />
-    <option name="LAST_COMMIT_MESSAGE" value="tweak to comment in the Plasma example" />
+    <MESSAGE value="change how data is accessed from the pyarrow.Table" />
+    <MESSAGE value="tweak comment in header" />
+    <MESSAGE value="change more comments in the header" />
+    <MESSAGE value="add new Python test program to read data from Plasma" />
+    <option name="LAST_COMMIT_MESSAGE" value="add new Python test program to read data from Plasma" />
   </component>
   <component name="WindowStateProjectService">
     <state x="2088" y="195" width="1092" height="714" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1598284583024">
@@ -179,9 +211,10 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="595" y="162" key="SettingsEditor/1920.31.1680.1010/0.0.1920.1040@0.0.1920.1040" timestamp="1598988521515" />
-    <state x="2349" y="288" key="Vcs.Push.Dialog.v2" timestamp="1598988609792">
-      <screen x="1920" y="31" width="1680" height="1010" />
+    <state x="490" y="265" key="Vcs.Push.Dialog.v2" timestamp="1599086803412">
+      <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="2349" y="288" key="Vcs.Push.Dialog.v2/1920.31.1680.1010/0.0.1920.1040@1920.31.1680.1010" timestamp="1598988609792" />
+    <state x="490" y="265" key="Vcs.Push.Dialog.v2/1920.31.1680.1010/0.0.1920.1040@0.0.1920.1040" timestamp="1599086803412" />
+    <state x="2349" y="288" key="Vcs.Push.Dialog.v2/1920.31.1680.1010/0.0.1920.1040@1920.31.1680.1010" timestamp="1598990058307" />
   </component>
 </project>

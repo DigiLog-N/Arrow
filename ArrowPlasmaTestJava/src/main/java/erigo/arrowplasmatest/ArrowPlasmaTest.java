@@ -52,6 +52,9 @@ public class ArrowPlasmaTest {
 	
 	public ArrowPlasmaTest(String[] arg) {
 
+		// Number of samples in each channel per batch
+		int batchSize = 10;
+
 		// Write out some bytes to Plasma
 		System.loadLibrary("plasma_java");
 		PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
@@ -67,14 +70,14 @@ public class ArrowPlasmaTest {
 		IntVector intVector = new IntVector("int",allocator);
 		VarCharVector varCharVector = new VarCharVector("varchar", allocator);
 		BitVector bitVector = new BitVector("boolean", allocator);
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < batchSize; i++) {
 			intVector.setSafe(i,i);
 			varCharVector.setSafe(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
 			bitVector.setSafe(i, i % 2 == 0 ? 0 : 1);
 		}
-		intVector.setValueCount(10);
-		varCharVector.setValueCount(10);
-		bitVector.setValueCount(10);
+		intVector.setValueCount(batchSize);
+		varCharVector.setValueCount(batchSize);
+		bitVector.setValueCount(batchSize);
 		
 		List<Field> fields = Arrays.asList(intVector.getField(), varCharVector.getField(), bitVector.getField());
 		List<FieldVector> vectors = Arrays.asList(intVector, varCharVector, bitVector);
@@ -84,50 +87,53 @@ public class ArrowPlasmaTest {
 		ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
 		try {
 			writer.start();
+			root.setRowCount(batchSize);
 			writer.writeBatch();
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
-		byte[] id2 = new byte[20];
-		Arrays.fill(id2, (byte) 2);
+		byte[] nextID = new byte[20];
+		Arrays.fill(nextID, (byte) 2);
 		byte[] recordAsBytes = out.toByteArray();
 		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
-		//ByteBuffer plasmaBuf = client.create(id2,recordAsBytes.length,null);
-		client.put(id2,recordAsBytes,null);
-		//client.seal(id2);
+		// We could create a buffer in Plasma and then write into that buffer;
+		// but the following call to client.put will do this
+		// ByteBuffer plasmaBuf = client.create(nextID,recordAsBytes.length,null);
+		client.put(nextID,recordAsBytes,null);
+		// The client.put call above automatically seals the object in Plasma, don't do it again
+		// client.seal(nextID);
 
-		/*
-		// this is a try-with-resource block
-		try (FileOutputStream fos = new FileOutputStream(".\\test.arrow");
-			 // Make the writer
-             ArrowFileWriter fileWriter = new ArrowFileWriter(root, null, Channels.newChannel(fos))) {
-			fileWriter.start();
-			// Write out first batch of data
-			fileWriter.writeBatch();
-			// Write out new batches of data
-			for (int i=0; i<2; ++i) {
-				IntVector childVector_int = (IntVector)root.getVector("int");
-				VarCharVector childVector_str = (VarCharVector)root.getVector("varchar");
-				BitVector childVector_bool = (BitVector)root.getVector("boolean");
-				childVector_int.reset();
-				childVector_str.reset();
-				childVector_bool.reset();
-				for (int j = 0; j <= 10; ++j) {
-					childVector_int.setSafe(j,j*(i+1));
-					childVector_str.setSafe(j, ("i = " + i + ", j = " + j).getBytes(StandardCharsets.UTF_8));
-					childVector_bool.setSafe(j, i % 2 == 0 ? 0 : 1);
-				}
-				childVector_int.setValueCount(10);
-				childVector_str.setValueCount(10);
-				childVector_bool.setValueCount(10);
-				fileWriter.writeBatch();
+		// Write out new batches of data
+		for (int i=0; i<2; ++i) {
+			// Fill the vectors with data
+			intVector.reset();
+			varCharVector.reset();
+			bitVector.reset();
+			for (int j = 0; j <= batchSize; ++j) {
+				intVector.setSafe(j,j*(i+1));
+				varCharVector.setSafe(j, ("i = " + i + ", j = " + j).getBytes(StandardCharsets.UTF_8));
+				bitVector.setSafe(j, i % 2 == 0 ? 0 : 1);
 			}
-			// Close the ArrowFileWriter
-			fileWriter.end();
+			// Create the batch, writing it out to the ByteArrayOutputStream
+			out.reset();
+			try {
+				root.setRowCount(batchSize);
+				writer.writeBatch();
+			} catch (IOException ioe) {
+				System.err.println(ioe);
+			}
+			// Write the batch to Plasma
+			Arrays.fill(nextID, (byte) (i+3));
+			recordAsBytes = out.toByteArray();
+			System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
+			client.put(nextID,recordAsBytes,null);
+		}
+		// Close the ArrowFileWriter
+		try {
+			writer.end();
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
-		*/
 
 	}
 	
