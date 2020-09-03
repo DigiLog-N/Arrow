@@ -92,17 +92,6 @@ public class ArrowPlasmaTest {
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
-		byte[] nextID = new byte[20];
-		Arrays.fill(nextID, (byte) 2);
-		byte[] recordAsBytes = out.toByteArray();
-		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
-		// We could create a buffer in Plasma and then write into that buffer;
-		// but the following call to client.put will do this
-		// ByteBuffer plasmaBuf = client.create(nextID,recordAsBytes.length,null);
-		client.put(nextID,recordAsBytes,null);
-		// The client.put call above automatically seals the object in Plasma, don't do it again
-		// client.seal(nextID);
-
 		// Write out new batches of data
 		for (int i=0; i<2; ++i) {
 			// Fill the vectors with data
@@ -114,23 +103,32 @@ public class ArrowPlasmaTest {
 				varCharVector.setSafe(j, ("i = " + i + ", j = " + j).getBytes(StandardCharsets.UTF_8));
 				bitVector.setSafe(j, i % 2 == 0 ? 0 : 1);
 			}
-			// Create the batch, writing it out to the ByteArrayOutputStream
-			out.reset();
 			try {
 				root.setRowCount(batchSize);
 				writer.writeBatch();
 			} catch (IOException ioe) {
 				System.err.println(ioe);
 			}
-			// Write the batch to Plasma
-			Arrays.fill(nextID, (byte) (i+3));
-			recordAsBytes = out.toByteArray();
-			System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
-			client.put(nextID,recordAsBytes,null);
 		}
-		// Close the ArrowFileWriter
+		//
+		// Write out to Plasma
+		//
+		byte[] nextID = new byte[20];
+		Arrays.fill(nextID, (byte) 2);
+		byte[] recordAsBytes = out.toByteArray();
+		System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
+		// We could create a buffer in Plasma and then write into that buffer;
+		// but the following call to client.put will do this
+		// ByteBuffer plasmaBuf = client.create(nextID,recordAsBytes.length,null);
+		client.put(nextID,recordAsBytes,null);
+		// The client.put call above automatically seals the object in Plasma, don't do it again
+		// client.seal(nextID);
+		//
+		// Close the ArrowFileWriter and ByteArrayOutputStream
+		//
 		try {
 			writer.end();
+			out.close();
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
