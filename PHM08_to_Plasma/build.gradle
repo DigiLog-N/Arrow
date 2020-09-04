@@ -33,7 +33,7 @@ jar.doFirst {
     String runtimeDependenciesStr = sb.toString().trim()
     
     manifest {
-        attributes 'Main-Class': 'erigo.phm08_to_arrow.PHM08_to_Plasma',
+        attributes 'Main-Class': 'erigo.phm08_to_plasma.PHM08_to_Plasma',
                    'Class-Path': runtimeDependenciesStr
     }
 }
