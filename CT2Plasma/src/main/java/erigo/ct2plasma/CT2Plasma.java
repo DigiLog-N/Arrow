@@ -18,10 +18,8 @@ limitations under the License.
 
 CT2Plasma
 
-Reads data from a CT source (i.e. this program has a CT sink ftont-end) and
-writes it as record batches to a Plasma in-memory object store; this
-application was the culmination of JPW's Java/Arrow development in the Phase I
-"DigiLog-N" project.
+Read data from a CT source (i.e. this program has a CT sink front-end) and
+write it as record batches to a Plasma in-memory object store.
 
 John Wilson, Erigo Technologies
 
@@ -39,15 +37,12 @@ https://github.com/animeshtrivedi/ArrowExample/blob/master/src/main/java/com/git
 package erigo.ct2plasma;
 
 import java.io.ByteArrayOutputStream;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.FileOutputStream;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import cycronix.ctlib.CTreader;
 import org.apache.arrow.memory.*;
 import org.apache.arrow.plasma.PlasmaClient;
 import org.apache.arrow.vector.*;
@@ -59,39 +54,21 @@ import org.apache.arrow.vector.types.pojo.*;
 
 public class CT2Plasma {
 
-	// Return codes for addDataToBatch
-	static final int STR_ERROR = -1;     // Data wasn't added to the Vectors due to an error in the input string
-	static final int UNIT_MISMATCH = -2; // Data wasn't added to the Vectors due to a mismatch in the unit number
-	static final int DATA_SUCCESS = 1;   // Data was successfully added to the Vectors
+	// Data types
+	public enum DataType {INT_DATA, FLOAT_DATA, STRING_DATA}
 
-	// Vectors to hold data to add to an Arrow batch
-	// Should be one Vector here per channel
-	IntVector unitVector = null;
-	IntVector timeVector = null;
-	Float4Vector op1Vector = null;
-	Float4Vector op2Vector = null;
-	Float4Vector op3Vector = null;
-	Float4Vector sensor01Vector = null;
-	Float4Vector sensor02Vector = null;
-	Float4Vector sensor03Vector = null;
-	Float4Vector sensor04Vector = null;
-	Float4Vector sensor05Vector = null;
-	Float4Vector sensor06Vector = null;
-	Float4Vector sensor07Vector = null;
-	Float4Vector sensor08Vector = null;
-	Float4Vector sensor09Vector = null;
-	Float4Vector sensor10Vector = null;
-	Float4Vector sensor11Vector = null;
-	Float4Vector sensor12Vector = null;
-	Float4Vector sensor13Vector = null;
-	Float4Vector sensor14Vector = null;
-	Float4Vector sensor15Vector = null;
-	Float4Vector sensor16Vector = null;
-	Float4Vector sensor17Vector = null;
-	Float4Vector sensor18Vector = null;
-	Float4Vector sensor19Vector = null;
-	Float4Vector sensor20Vector = null;
-	Float4Vector sensor21Vector = null;
+	// Map containing all of the DataContainer objects
+	LinkedHashMap<String,DataContainer> hashMap = new LinkedHashMap<>();
+
+	// Return codes for addDataToBatch
+	public static final int STR_ERROR = -1;     // Data wasn't added to the Vectors due to an error in the input string
+	public static final int UNIT_MISMATCH = -2; // Data wasn't added to the Vectors due to a mismatch in the unit number
+	public static final int DATA_SUCCESS = 1;   // Data was successfully added to the Vectors
+
+	// Array of channel names
+	// - this will be the CT channel names (data type suffix will need to be added) and the Arrow record batch channel names
+	String[] chanNames = {"unit","time","op1","op2","op3","sensor01","sensor02","sensor03","sensor04","sensor05","sensor06","sensor07","sensor08","sensor09","sensor10","sensor11","sensor12","sensor13","sensor14","sensor15","sensor16","sensor17","sensor18","sensor19","sensor20","sensor21"};
+	DataType[] chanDataTypes = {DataType.INT_DATA,DataType.INT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA};
 
 	//
 	// Main function
@@ -116,81 +93,27 @@ public class CT2Plasma {
 	//
 	public CT2Plasma(String ctsourceI) throws Exception {
 
-		// Next line from the data file
-		String nextLine = null;
+		CTreader ctr = new CTreader("CTdata");
 
-		File infile = new File(filenameI);
-		if (!infile.isFile()) {
-			System.err.println("The given file, " + filenameI + ", does not exist.");
-			return;
-		}
-		// Open up the input file
-		BufferedReader br = new BufferedReader(new FileReader(infile));
-
-		// Create the Vectors to hold data; use the correct data type for each Vector
-		// BitVector		(1 bit, elements can be null)
-		// Float4Vector		(4 bytes, elements can be null)
-		// Float8Vector		(8 bytes, elements can be null)
-		// IntVector		(4 bytes, elements can be null)
-		// BigIntVector		(8 bytes, elements can be null)
-		// VarCharVector	(variable length vector, elements can be null)
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-		unitVector = new IntVector("unit",allocator);
-		timeVector = new IntVector("time_cycles",allocator);
-		op1Vector = new Float4Vector("op1",allocator);
-		op2Vector = new Float4Vector("op2",allocator);
-		op3Vector = new Float4Vector("op3",allocator);
-		sensor01Vector = new Float4Vector("sensor01",allocator);
-		sensor02Vector = new Float4Vector("sensor02",allocator);
-		sensor03Vector = new Float4Vector("sensor03",allocator);
-		sensor04Vector = new Float4Vector("sensor04",allocator);
-		sensor05Vector = new Float4Vector("sensor05",allocator);
-		sensor06Vector = new Float4Vector("sensor06",allocator);
-		sensor07Vector = new Float4Vector("sensor07",allocator);
-		sensor08Vector = new Float4Vector("sensor08",allocator);
-		sensor09Vector = new Float4Vector("sensor09",allocator);
-		sensor10Vector = new Float4Vector("sensor10",allocator);
-		sensor11Vector = new Float4Vector("sensor11",allocator);
-		sensor12Vector = new Float4Vector("sensor12",allocator);
-		sensor13Vector = new Float4Vector("sensor13",allocator);
-		sensor14Vector = new Float4Vector("sensor14",allocator);
-		sensor15Vector = new Float4Vector("sensor15",allocator);
-		sensor16Vector = new Float4Vector("sensor16",allocator);
-		sensor17Vector = new Float4Vector("sensor17",allocator);
-		sensor18Vector = new Float4Vector("sensor18",allocator);
-		sensor19Vector = new Float4Vector("sensor19",allocator);
-		sensor20Vector = new Float4Vector("sensor20",allocator);
-		sensor21Vector = new Float4Vector("sensor21",allocator);
 
-		// Allocate space for the Vectors
-		// We don't actually know ahead of time how many records there will be in each batch
-		int batchSize = 100;
-		unitVector.allocateNew(batchSize);
-		timeVector.allocateNew(batchSize);
-		op1Vector.allocateNew(batchSize);
-		op2Vector.allocateNew(batchSize);
-		op3Vector.allocateNew(batchSize);
-		sensor01Vector.allocateNew(batchSize);
-		sensor02Vector.allocateNew(batchSize);
-		sensor03Vector.allocateNew(batchSize);
-		sensor04Vector.allocateNew(batchSize);
-		sensor05Vector.allocateNew(batchSize);
-		sensor06Vector.allocateNew(batchSize);
-		sensor07Vector.allocateNew(batchSize);
-		sensor08Vector.allocateNew(batchSize);
-		sensor09Vector.allocateNew(batchSize);
-		sensor10Vector.allocateNew(batchSize);
-		sensor11Vector.allocateNew(batchSize);
-		sensor12Vector.allocateNew(batchSize);
-		sensor13Vector.allocateNew(batchSize);
-		sensor14Vector.allocateNew(batchSize);
-		sensor15Vector.allocateNew(batchSize);
-		sensor16Vector.allocateNew(batchSize);
-		sensor17Vector.allocateNew(batchSize);
-		sensor18Vector.allocateNew(batchSize);
-		sensor19Vector.allocateNew(batchSize);
-		sensor20Vector.allocateNew(batchSize);
-		sensor21Vector.allocateNew(batchSize);
+		// Create containers for storing the Arrow data vectors
+		for (int i = 0; i < chanNames.length; ++i) {
+			switch (chanDataTypes[i]) {
+				case INT_DATA:
+					IntDataContainer int_dc = new IntDataContainer(chanNames[i],allocator);
+					hashMap.put(chanNames[i],int_dc);
+					break;
+				case FLOAT_DATA:
+					FloatDataContainer float_dc = new FloatDataContainer(chanNames[i],allocator);
+					hashMap.put(chanNames[i],float_dc);
+					break;
+				case STRING_DATA:
+					StringDataContainer str_dc = new StringDataContainer(chanNames[i],allocator);
+					hashMap.put(chanNames[i],str_dc);
+					break;
+			}
+		}
 
 		// Write data to the first batch
 		int recordsInBatch = 0;
@@ -210,33 +133,27 @@ public class CT2Plasma {
 			}
 		}
 
-		// Specify size for each Vector
-		unitVector.setValueCount(recordsInBatch);
-		timeVector.setValueCount(recordsInBatch);
-		op1Vector.setValueCount(recordsInBatch);
-		op2Vector.setValueCount(recordsInBatch);
-		op3Vector.setValueCount(recordsInBatch);
-		sensor01Vector.setValueCount(recordsInBatch);
-		sensor02Vector.setValueCount(recordsInBatch);
-		sensor03Vector.setValueCount(recordsInBatch);
-		sensor04Vector.setValueCount(recordsInBatch);
-		sensor05Vector.setValueCount(recordsInBatch);
-		sensor06Vector.setValueCount(recordsInBatch);
-		sensor07Vector.setValueCount(recordsInBatch);
-		sensor08Vector.setValueCount(recordsInBatch);
-		sensor09Vector.setValueCount(recordsInBatch);
-		sensor10Vector.setValueCount(recordsInBatch);
-		sensor11Vector.setValueCount(recordsInBatch);
-		sensor12Vector.setValueCount(recordsInBatch);
-		sensor13Vector.setValueCount(recordsInBatch);
-		sensor14Vector.setValueCount(recordsInBatch);
-		sensor15Vector.setValueCount(recordsInBatch);
-		sensor16Vector.setValueCount(recordsInBatch);
-		sensor17Vector.setValueCount(recordsInBatch);
-		sensor18Vector.setValueCount(recordsInBatch);
-		sensor19Vector.setValueCount(recordsInBatch);
-		sensor20Vector.setValueCount(recordsInBatch);
-		sensor21Vector.setValueCount(recordsInBatch);
+		List<Field> fields
+		for (int i = 0; i < chanNames.length; ++i) {
+			DataContainer dc = hashMap.get(chanNames[i]);
+			dc.setValueCount(recordsInBatch);
+			Field field = null;
+			FieldVector fieldV = null;
+			switch (chanDataTypes[i]) {
+				case INT_DATA:
+					field = ((IntDataContainer)dc).vec.getField();
+					fieldV = ((IntDataContainer)dc).vec;
+					break;
+				case FLOAT_DATA:
+					field = ((FloatDataContainer)dc).vec.getField();
+					fieldV = ((FloatDataContainer)dc).vec;
+					break;
+				case STRING_DATA:
+					field = ((StringDataContainer)dc).vec.getField();
+					fieldV = ((StringDataContainer)dc).vec;
+					break;
+			}
+		}
 
 		List<Field> fields = Arrays.asList(
 				unitVector.getField(),
