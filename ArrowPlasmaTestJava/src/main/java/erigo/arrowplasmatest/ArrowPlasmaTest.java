@@ -18,6 +18,9 @@ limitations under the License.
 
 ArrowPlasmaTest
 
+Simple Java program which writes Arrow record batches to a Plasma in-memory
+object store (which must be running at "/tmp/plasma").
+
 John Wilson, Erigo Technologies
 
 Simple Java Arrow test using Plasma in-memory object store

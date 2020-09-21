@@ -16,13 +16,12 @@ limitations under the License.
 
 /*
 
-PHM08_to_Plasma
+CT2Plasma
 
-Reads data from a PHM08 input file and writes it out to Apache Plasma in-memory object store.
-
-The PHM08 data is from the NASA jet engine prognostics challenge; from our shared repository, see Data/PHM08 or search for
-"PHM08 Challenge Data Set" at https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/#turbofan
-or go to https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/publications/#phm08_challenge
+Reads data from a CT source (i.e. this program has a CT sink ftont-end) and
+writes it as record batches to a Plasma in-memory object store; this
+application was the culmination of JPW's Java/Arrow development in the Phase I
+"DigiLog-N" project.
 
 John Wilson, Erigo Technologies
 
@@ -37,7 +36,7 @@ https://github.com/animeshtrivedi/ArrowExample/blob/master/src/main/java/com/git
 
  */
 
-package erigo.phm08_to_plasma;
+package erigo.ct2plasma;
 
 import java.io.ByteArrayOutputStream;
 import java.io.BufferedReader;
@@ -58,7 +57,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.*;
 
-public class PHM08_to_Plasma {
+public class CT2Plasma {
 
 	// Return codes for addDataToBatch
 	static final int STR_ERROR = -1;     // Data wasn't added to the Vectors due to an error in the input string
@@ -101,10 +100,10 @@ public class PHM08_to_Plasma {
 		try {
 			if (argsI.length < 1) {
 				System.err.println("Usage:");
-				System.err.println("    java -jar PHM08_to_Plasma.jar <in_filename>");
+				System.err.println("    java -jar CT2Plasma.jar <CT source name>");
 				System.exit(0);
 			}
-			new PHM08_to_Plasma(argsI[0]);
+			new CT2Plasma(argsI[0]);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.err.println(e);
@@ -112,10 +111,10 @@ public class PHM08_to_Plasma {
 	}
 
 	//
-	// PHM08_to_Plasma constructor
+	// CT2Plasma constructor
 	// Everything happens in this method
 	//
-	public PHM08_to_Plasma(String filenameI) throws Exception {
+	public CT2Plasma(String ctsourceI) throws Exception {
 
 		// Next line from the data file
 		String nextLine = null;
@@ -578,4 +577,4 @@ public class PHM08_to_Plasma {
 		}
 	}
 	
-} //end class PHM08_to_Plasma
+} //end class CT2Plasma

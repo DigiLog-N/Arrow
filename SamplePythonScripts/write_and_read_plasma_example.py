@@ -4,7 +4,7 @@
 #
 # In order to run this example:
 # 1. Plasma is only supported on Mac and Linux
-# 2. Must have Python version 3.5+
+# 2. Must use Python version 3.5+
 # 3. Install PyArrow (https://arrow.apache.org/docs/python/install.html)
 #      e.g.  pip install pyarrow
 # 4. Start up a Plasma store
