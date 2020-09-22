@@ -18,15 +18,15 @@ package erigo.ct2plasma;
 
 import cycronix.ctlib.CTdata;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.Float8Vector;
 
-public class IntDataContainer extends DataContainer {
+public class DoubleDataContainer extends DataContainer {
 
-    public IntVector vec;
+    public Float8Vector vec;
 
-    public IntDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
-        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.INT_DATA);
-        vec = new IntVector(arrow_chanName,allocatorI);
+    public DoubleDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
+        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.DOUBLE_DATA);
+        vec = new Float8Vector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
         fieldVec = vec;
         field = vec.getField();
@@ -52,7 +52,7 @@ public class IntDataContainer extends DataContainer {
             return;
         }
         double[] times = ctDataI.getTime();
-        int[] data = ctDataI.getDataAsInt32();
+        double[] data = ctDataI.getDataAsFloat64();
         int data_index = -1;
         for (int i = 0; i<times.length; ++i) {
             if ( Math.abs(times[i] - timestampI) < 0.0001 ) {

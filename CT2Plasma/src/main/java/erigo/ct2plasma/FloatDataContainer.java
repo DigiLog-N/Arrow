@@ -22,12 +22,14 @@ import org.apache.arrow.vector.Float4Vector;
 
 public class FloatDataContainer extends DataContainer {
 
-    public Float4Vector vec = null;
+    public Float4Vector vec;
 
-    public FloatDataContainer(String chanNameI, RootAllocator allocatorI) throws Exception {
-        super(chanNameI,CT2Plasma.DataType.FLOAT_DATA);
+    public FloatDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
+        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.FLOAT_DATA);
         vec = new Float4Vector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
+        fieldVec = vec;
+        field = vec.getField();
     }
 
     public void reset() {
@@ -45,6 +47,10 @@ public class FloatDataContainer extends DataContainer {
     // null to the vector at this index.
     //
     public void addDataToVector(CTdata ctDataI,int vec_indexI,double timestampI) {
+        if (ctDataI == null) {
+            vec.setSafe(vec_indexI, 0, -999);
+            return;
+        }
         double[] times = ctDataI.getTime();
         float[] data = ctDataI.getDataAsFloat32();
         int data_index = -1;

@@ -24,12 +24,14 @@ import java.nio.charset.StandardCharsets;
 
 public class StringDataContainer extends DataContainer {
 
-    public VarCharVector vec = null;
+    public VarCharVector vec;
 
-    public StringDataContainer(String chanNameI, RootAllocator allocatorI) throws Exception {
-        super(chanNameI,CT2Plasma.DataType.STRING_DATA);
+    public StringDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
+        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.STRING_DATA);
         vec = new VarCharVector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
+        fieldVec = vec;
+        field = vec.getField();
     }
 
     public void reset() {
@@ -47,6 +49,10 @@ public class StringDataContainer extends DataContainer {
     // null to the vector at this index.
     //
     public void addDataToVector(CTdata ctDataI,int vec_indexI,double timestampI) {
+        if (ctDataI == null) {
+            vec.setSafe(vec_indexI, "n/a".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
         double[] times = ctDataI.getTime();
         byte[][] data = ctDataI.getData();
         int data_index = -1;

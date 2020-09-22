@@ -17,28 +17,27 @@ limitations under the License.
 package erigo.ct2plasma;
 
 import cycronix.ctlib.CTdata;
-import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.types.pojo.Field;
 
 public abstract class DataContainer {
 
-    public String ct_chanName = null; // name of the input CT channel
-    public String arrow_chanName = null;    // name of the output channel for the Arrow record batch
+    public String arrow_chanName;  // name of the output channel for the Arrow record batch
+    public String ct_chanName;     // name of the input CT channel
     public CT2Plasma.DataType chanType;
-    // public BaseValueVector vec = null;
-    CTdata ctData = null;
+    public FieldVector fieldVec = null;
+    public Field field = null;
+    public CTdata ctData = null;
 
-    public DataContainer(String arrow_chanNameI,CT2Plasma.DataType chanTypeI) throws Exception {
+    public DataContainer(String arrow_chanNameI, String ct_chanNameI, CT2Plasma.DataType chanTypeI) throws Exception {
         if ( (arrow_chanNameI == null) || (arrow_chanNameI.isEmpty()) ) {
-            throw new Exception("DataContainer: Illegal channel name");
+            throw new Exception("IntDataContainer: Illegal Arrow channel name");
+        }
+        if ( (ct_chanNameI == null) || (ct_chanNameI.isEmpty()) ) {
+            throw new Exception("IntDataContainer: Illegal CloudTurbine channel name");
         }
         arrow_chanName = arrow_chanNameI;
-        if (chanTypeI == CT2Plasma.DataType.INT_DATA) {
-            ct_chanName = new String(arrow_chanName + ".i32");
-        } else if (chanTypeI == CT2Plasma.DataType.FLOAT_DATA) {
-            ct_chanName = new String(arrow_chanName + ".f32");
-        } else if (chanTypeI == CT2Plasma.DataType.STRING_DATA) {
-            ct_chanName = new String(arrow_chanName + ".csv");
-        }
+        ct_chanName = ct_chanNameI;
         chanType = chanTypeI;
     }
 

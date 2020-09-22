@@ -39,35 +39,38 @@ package erigo.ct2plasma;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import cycronix.ctlib.CTdata;
+import cycronix.ctlib.CTmap;
 import cycronix.ctlib.CTreader;
 import org.apache.arrow.memory.*;
 import org.apache.arrow.plasma.PlasmaClient;
 import org.apache.arrow.vector.*;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
-import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.*;
 
 public class CT2Plasma {
 
 	// Data types
-	public enum DataType {INT_DATA, FLOAT_DATA, STRING_DATA}
+	public enum DataType {INT_DATA, FLOAT_DATA, DOUBLE_DATA, STRING_DATA}
 
 	// Map containing all of the DataContainer objects
 	LinkedHashMap<String,DataContainer> hashMap = new LinkedHashMap<>();
 
-	// Return codes for addDataToBatch
-	public static final int STR_ERROR = -1;     // Data wasn't added to the Vectors due to an error in the input string
-	public static final int UNIT_MISMATCH = -2; // Data wasn't added to the Vectors due to a mismatch in the unit number
-	public static final int DATA_SUCCESS = 1;   // Data was successfully added to the Vectors
+	CTreader ctr = null;
 
-	// Array of channel names
-	// - this will be the CT channel names (data type suffix will need to be added) and the Arrow record batch channel names
-	String[] chanNames = {"unit","time","op1","op2","op3","sensor01","sensor02","sensor03","sensor04","sensor05","sensor06","sensor07","sensor08","sensor09","sensor10","sensor11","sensor12","sensor13","sensor14","sensor15","sensor16","sensor17","sensor18","sensor19","sensor20","sensor21"};
+	int batchFlushPeriod_msec = 120000; // Time (msec) between flushing data to Plasma
+
+	// How many record batches we have written out?
+	int batchNum = 0;
+
+	// INPUT DATA THAT WILL CHANGE FROM SOURCE-TO-SOURCE
+	// NB: It is assumed that this source resides below a "CTdata" folder
+	// NB: Source name must be less than 13 characters
+	String ct_sourceName = "PHM08";
+	String[] ct_chanNames = {"unit.i32","time.i32","op1.f32","op2.f32","op3.f32","sensor01.f32","sensor02.f32","sensor03.f32","sensor04.f32","sensor05.f32","sensor06.f32","sensor07.f32","sensor08.f32","sensor09.f32","sensor10.f32","sensor11.f32","sensor12.f32","sensor13.f32","sensor14.f32","sensor15.f32","sensor16.f32","sensor17.f32","sensor18.f32","sensor19.f32","sensor20.f32","sensor21.f32"};
+	String[] arrow_chanNames = {"unit","time","op1","op2","op3","sensor01","sensor02","sensor03","sensor04","sensor05","sensor06","sensor07","sensor08","sensor09","sensor10","sensor11","sensor12","sensor13","sensor14","sensor15","sensor16","sensor17","sensor18","sensor19","sensor20","sensor21"};
 	DataType[] chanDataTypes = {DataType.INT_DATA,DataType.INT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA};
 
 	//
@@ -93,405 +96,184 @@ public class CT2Plasma {
 	//
 	public CT2Plasma(String ctsourceI) throws Exception {
 
-		CTreader ctr = new CTreader("CTdata");
+		// Check that the input arrays are all the same size
+		if ( (ct_chanNames.length != arrow_chanNames.length) || (ct_chanNames.length != chanDataTypes.length) ) {
+			throw new Exception("Input array size mismatch");
+		}
 
+		if (ct_sourceName.length() > 13) {
+			throw new Exception("CT source name is too long; must be 13 characters at most");
+		}
+
+		ctr = new CTreader("CTdata");
+
+		// Setup Arrow-related variables
+		System.loadLibrary("plasma_java");
+		PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-
-		// Create containers for storing the Arrow data vectors
-		for (int i = 0; i < chanNames.length; ++i) {
+		ArrayList<Field> fields = new ArrayList<>();
+		ArrayList<FieldVector> vectors = new ArrayList<>();
+		for (int i = 0; i < arrow_chanNames.length; ++i) {
 			switch (chanDataTypes[i]) {
 				case INT_DATA:
-					IntDataContainer int_dc = new IntDataContainer(chanNames[i],allocator);
-					hashMap.put(chanNames[i],int_dc);
+					IntDataContainer int_dc = new IntDataContainer(arrow_chanNames[i], ct_chanNames[i], allocator);
+					hashMap.put(arrow_chanNames[i], int_dc);
 					break;
 				case FLOAT_DATA:
-					FloatDataContainer float_dc = new FloatDataContainer(chanNames[i],allocator);
-					hashMap.put(chanNames[i],float_dc);
+					FloatDataContainer float_dc = new FloatDataContainer(arrow_chanNames[i], ct_chanNames[i], allocator);
+					hashMap.put(arrow_chanNames[i], float_dc);
+					break;
+				case DOUBLE_DATA:
+					DoubleDataContainer double_dc = new DoubleDataContainer(arrow_chanNames[i], ct_chanNames[i], allocator);
+					hashMap.put(arrow_chanNames[i], double_dc);
 					break;
 				case STRING_DATA:
-					StringDataContainer str_dc = new StringDataContainer(chanNames[i],allocator);
-					hashMap.put(chanNames[i],str_dc);
+					StringDataContainer str_dc = new StringDataContainer(arrow_chanNames[i], ct_chanNames[i], allocator);
+					hashMap.put(arrow_chanNames[i], str_dc);
 					break;
 			}
+			DataContainer dc = hashMap.get(arrow_chanNames[i]);
+			fields.add(dc.field);
+			vectors.add(dc.fieldVec);
 		}
-
-		// Write data to the first batch
-		int recordsInBatch = 0;
-		int currentUnitNumber = 1;
-		while (true) {
-			nextLine = br.readLine();
-			if (nextLine == null) {
-				System.err.println("Got null reading file when making first batch");
-				return;
-			}
-			int returnVal = addDataToBatch(recordsInBatch, currentUnitNumber, nextLine);
-			if (returnVal == DATA_SUCCESS) {
-				++recordsInBatch;
-			} else if (returnVal == UNIT_MISMATCH) {
-				// We've reached the next unit number
-				break;
-			}
-		}
-
-		List<Field> fields
-		for (int i = 0; i < chanNames.length; ++i) {
-			DataContainer dc = hashMap.get(chanNames[i]);
-			dc.setValueCount(recordsInBatch);
-			Field field = null;
-			FieldVector fieldV = null;
-			switch (chanDataTypes[i]) {
-				case INT_DATA:
-					field = ((IntDataContainer)dc).vec.getField();
-					fieldV = ((IntDataContainer)dc).vec;
-					break;
-				case FLOAT_DATA:
-					field = ((FloatDataContainer)dc).vec.getField();
-					fieldV = ((FloatDataContainer)dc).vec;
-					break;
-				case STRING_DATA:
-					field = ((StringDataContainer)dc).vec.getField();
-					fieldV = ((StringDataContainer)dc).vec;
-					break;
-			}
-		}
-
-		List<Field> fields = Arrays.asList(
-				unitVector.getField(),
-				timeVector.getField(),
-				op1Vector.getField(),
-				op2Vector.getField(),
-				op3Vector.getField(),
-				sensor01Vector.getField(),
-				sensor02Vector.getField(),
-				sensor03Vector.getField(),
-				sensor04Vector.getField(),
-				sensor05Vector.getField(),
-				sensor06Vector.getField(),
-				sensor07Vector.getField(),
-				sensor08Vector.getField(),
-				sensor09Vector.getField(),
-				sensor10Vector.getField(),
-				sensor11Vector.getField(),
-				sensor12Vector.getField(),
-				sensor13Vector.getField(),
-				sensor14Vector.getField(),
-				sensor15Vector.getField(),
-				sensor16Vector.getField(),
-				sensor17Vector.getField(),
-				sensor18Vector.getField(),
-				sensor19Vector.getField(),
-				sensor20Vector.getField(),
-				sensor21Vector.getField());
-		List<FieldVector> vectors = Arrays.asList(
-				unitVector,
-				timeVector,
-				op1Vector,
-				op2Vector,
-				op3Vector,
-				sensor01Vector,
-				sensor02Vector,
-				sensor03Vector,
-				sensor04Vector,
-				sensor05Vector,
-				sensor06Vector,
-				sensor07Vector,
-				sensor08Vector,
-				sensor09Vector,
-				sensor10Vector,
-				sensor11Vector,
-				sensor12Vector,
-				sensor13Vector,
-				sensor14Vector,
-				sensor15Vector,
-				sensor16Vector,
-				sensor17Vector,
-				sensor18Vector,
-				sensor19Vector,
-				sensor20Vector,
-				sensor21Vector);
-
 		VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
-		// Keep track of how many batches we have written out
-		int batchNum = 0;
+		//
+		// Fetch data from CloudTurbine source and write it to Arrow + Plasma
+		//
+		// 1. Determine starting timestamp:
+		//      a. Request newest duration=0 data for the first channel
+		//      b. Determine the timestamp of the received data; this is our new timestamp to use
+		// 2. Request data for all channels at this timestamp, duration=0
+		// 3. Add received data to the data vectors
+		// 4. If enough time has passed, flush the data to Plasma
+		// 5. Determine next timestamp:
+		//      a. Request data for the first channel at (latest_timestamp+0.0001) and large duration
+		//		b. Determine oldest timestamp in the received data; this is our new timestamp to use
+		// 6. Go back to step 2
+		//
+		int recordsInBatch = 0;
+		long batchStartTime = System.currentTimeMillis();
+		double nextTimestamp = getNewestTimestamp(ct_chanNames[0]);
+		while (true) {
+			// Create request CTmap
+			CTmap requestMap = new CTmap();
+			for (int i = 0; i < ct_chanNames.length; ++i) {
+				requestMap.add(ct_chanNames[i]);
+			}
+			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
+			if (dataMap == null) {
+				System.err.println("got null CTmap from our data request");
+			} else {
+				addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
+				++recordsInBatch;
+				// Is it time to write data to Plasma? (We periodically flush data to Plasma.)
+				if ((System.currentTimeMillis() - batchStartTime) > batchFlushPeriod_msec) {
+					writeToPlasma(client, root, recordsInBatch);
+					recordsInBatch = 0;
+					// Reset vectors
+					for (int i = 0; i < arrow_chanNames.length; ++i) {
+						DataContainer dc = hashMap.get(arrow_chanNames[i]);
+						dc.reset();
+					}
+					batchStartTime = System.currentTimeMillis();
+				}
+			}
+			nextTimestamp = getNextTimestamp(ct_chanNames[0], nextTimestamp + 0.0001);
+		}
+	}
+
+	//
+	// Get the newest timestamp for the given channel.
+	// Do this in a sleepy loop until we receive data.
+	//
+	private double getNewestTimestamp(String chanNameI) throws Exception {
+		while (true) {
+			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, "newest");
+			if (data != null) {
+				// Since we are requesting the newest datapoint, should only be 1 timestamp
+				double[] dt = data.getTime();
+				if (dt.length != 1) {
+					System.err.println("getNewestTimestamp(): length of time array = " + dt.length);
+				}
+				return dt[0];
+			}
+			Thread.sleep(100);
+		}
+	}
+
+	//
+	// Get the next timestamp for the given channel.
+	// Do this in a sleepy loop until we receive data.
+	// Perform absolute data request for the given channel at the given timestamp and large duration
+	// Return the oldest timestamp from the received data
+	//
+	private double getNextTimestamp(String chanNameI, double timebaseI) throws Exception {
+		while (true) {
+			CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI, 1000000, "absolute");
+			if (data != null) {
+				double[] dt = data.getTime();
+				return dt[0];
+			}
+			Thread.sleep(100);
+		}
+	}
+
+	//
+	// Add data from the given CTmap to the Arrow vectors
+	//
+	private void addDataToVectors(CTmap dataMapI, int indexI, double timestampI) {
+		for (int i = 0; i < arrow_chanNames.length; ++i) {
+			DataContainer dc = hashMap.get(arrow_chanNames[i]);
+			CTdata ctData = null;
+			if (dataMapI.checkName(ct_chanNames[i])) {
+				ctData = dataMapI.get(ct_chanNames[i], timestampI, 0.0, "absolute");
+			} else {
+				System.err.println("addDataToVectors(): No data for chan " + ct_chanNames[i] + "; add null");
+			}
+			dc.addDataToVector(ctData,indexI,timestampI);
+		}
+	}
+
+	//
+	// Write data to Arrow and then Plasma
+	// Each Plasma object will contain one record batch
+	//
+	private void writeToPlasma(PlasmaClient clientI, VectorSchemaRoot rootI, int recordsInBatchI) {
+		for (int i = 0; i < arrow_chanNames.length; ++i) {
+			DataContainer dc = hashMap.get(arrow_chanNames[i]);
+			dc.setValueCount(recordsInBatchI);
+		}
 
 		// This is a try-with-resource block
 		try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-			 ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out)))
+			 ArrowStreamWriter writer = new ArrowStreamWriter(rootI, /*DictionaryProvider=*/null, Channels.newChannel(out)))
 		{
+			// Create the Arrow record batch in memory
 			writer.start();
-			// Write out first batch of data
 			++batchNum;
-			System.err.println("\nBatch " + batchNum + ", contains " + recordsInBatch + " records");
-			root.setRowCount(recordsInBatch);
+			System.err.println("\nBatch " + batchNum + ", contains " + recordsInBatchI + " records");
+			rootI.setRowCount(recordsInBatchI);
 			writer.writeBatch();
-			// Continuously write new batches until we reach end of file
-			boolean bEOF = false;
-			while (true) {
-				// Reset vectors
-				unitVector.reset();
-				timeVector.reset();
-				op1Vector.reset();
-				op2Vector.reset();
-				op3Vector.reset();
-				sensor01Vector.reset();
-				sensor02Vector.reset();
-				sensor03Vector.reset();
-				sensor04Vector.reset();
-				sensor05Vector.reset();
-				sensor06Vector.reset();
-				sensor07Vector.reset();
-				sensor08Vector.reset();
-				sensor09Vector.reset();
-				sensor10Vector.reset();
-				sensor11Vector.reset();
-				sensor12Vector.reset();
-				sensor13Vector.reset();
-				sensor14Vector.reset();
-				sensor15Vector.reset();
-				sensor16Vector.reset();
-				sensor17Vector.reset();
-				sensor18Vector.reset();
-				sensor19Vector.reset();
-				sensor20Vector.reset();
-				sensor21Vector.reset();
-				// Write out a new batch
-				++currentUnitNumber;
-				recordsInBatch = 0;
-				boolean bFirstLine = true;
-				while (true) {
-					if (bFirstLine) {
-						// We'll use the last line we read in (has the new unit number)
-						bFirstLine = false;
-					} else {
-						nextLine = br.readLine();
-					}
-					if (nextLine == null) {
-						System.err.println("We've reached the end of the file");
-						bEOF = true;
-						break;
-					}
-					int returnVal = addDataToBatch(recordsInBatch, currentUnitNumber, nextLine);
-					if (returnVal == DATA_SUCCESS) {
-						++recordsInBatch;
-					} else if (returnVal == UNIT_MISMATCH) {
-						// We've reached the next unit number
-						break;
-					}
-				}
-				// Write out next batch of data
-				if ( recordsInBatch > 0 ) {
-					++batchNum;
-					System.err.println("Batch " + batchNum + ", contains " + recordsInBatch + " records");
-					root.setRowCount(recordsInBatch);
-					writer.writeBatch();
-				}
-				if (bEOF) {
-					// Write the batch out to Plasma
-					System.loadLibrary("plasma_java");
-					PlasmaClient client = new PlasmaClient("/tmp/plasma", "", 0);
-					byte[] nextID = new byte[20];
-					Arrays.fill(nextID, (byte) 1);
-					byte[] recordAsBytes = out.toByteArray();
-					System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
-					// We could create a buffer in Plasma and then write into that buffer;
-					// but the following call to client.put will do this
-					// ByteBuffer plasmaBuf = client.create(nextID,recordAsBytes.length,null);
-					client.put(nextID,recordAsBytes,null);
-					// The client.put call above automatically seals the object in Plasma, don't do it again
-					// client.seal(nextID);
-					break;
-				}
-			}
-			// Close the ArrowFileWriter
 			writer.end();
-			br.close();
+
+			// Create the Plasma object ID
+			// See answer from "leo" at https://stackoverflow.com/questions/388461/how-can-i-pad-a-string-in-java
+			String idStr = String.format("%-13s_b%05d",ct_sourceName,batchNum).replace(' ', '*');
+			byte[] nextID = idStr.getBytes("UTF8");
+
+			// Write the Arrow record batch to Plasma
+			byte[] recordAsBytes = out.toByteArray();
+			System.err.println("the record batch contains " + recordAsBytes.length + " bytes");
+			// We could create a buffer in Plasma and then write into that buffer;
+			// but the following call to client.put will do this
+			// ByteBuffer plasmaBuf = clientI.create(nextID,recordAsBytes.length,null);
+			clientI.put(nextID,recordAsBytes,null);
+			// The client.put call above automatically seals the object in Plasma, don't do it again
+			// client.seal(nextID);
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
+	} // end writeToPlasma()
 
-	}
-
-	//
-	// Break up a given CSV string and add one datapoint to each Vector
-	//
-	// Return value:
-	// STR_ERROR:     Data wasn't added to the Vectors due to an error in the input string
-	// UNIT_MISMATCH: Data wasn't added to the Vectors due to a mismatch in the unit number
-	// DATA_SUCCESS:  Data was successfully added to the Vectors
-	//
-	private int addDataToBatch(int indexI, int currentUnitNumberI, String csvStrI) {
-		if (csvStrI == null) {
-			return STR_ERROR;
-		}
-		String csvStr = csvStrI.trim();
-		if (csvStr.isEmpty()) {
-			return STR_ERROR;
-		}
-		String[] strArray = csvStr.split(" ");
-		if (strArray.length != 26) {
-			System.err.println("addDataToBatch(): got wrong number of array entries: expected 26, got " + strArray.length);
-			return STR_ERROR;
-		}
-		//
-		// Make sure the unit number in the parsed string is the same as the given unit number
-		//
-		String unitNumberStr = strArray[0];
-		if ( (unitNumberStr == null) || (unitNumberStr.trim().isEmpty()) ) {
-			return STR_ERROR;
-		}
-		int unitNumber = -1;
-		unitNumberStr = unitNumberStr.trim();
-		try {
-			unitNumber = Integer.parseInt(unitNumberStr);
-		} catch (Exception e) {
-			return STR_ERROR;
-		}
-		if (unitNumber != currentUnitNumberI) {
-			return UNIT_MISMATCH;
-		}
-		//
-		// Add data to the Vectors
-		//
-		storeAsInteger(strArray[0],unitVector,indexI);
-		storeAsInteger(strArray[1],timeVector,indexI);
-		storeAsFloat(strArray[2],op1Vector,indexI);
-		storeAsFloat(strArray[3],op2Vector,indexI);
-		storeAsFloat(strArray[4],op3Vector,indexI);
-		storeAsFloat(strArray[5],sensor01Vector,indexI);
-		storeAsFloat(strArray[6],sensor02Vector,indexI);
-		storeAsFloat(strArray[7],sensor03Vector,indexI);
-		storeAsFloat(strArray[8],sensor04Vector,indexI);
-		storeAsFloat(strArray[9],sensor05Vector,indexI);
-		storeAsFloat(strArray[10],sensor06Vector,indexI);
-		storeAsFloat(strArray[11],sensor07Vector,indexI);
-		storeAsFloat(strArray[12],sensor08Vector,indexI);
-		storeAsFloat(strArray[13],sensor09Vector,indexI);
-		storeAsFloat(strArray[14],sensor10Vector,indexI);
-		storeAsFloat(strArray[15],sensor11Vector,indexI);
-		storeAsFloat(strArray[16],sensor12Vector,indexI);
-		storeAsFloat(strArray[17],sensor13Vector,indexI);
-		storeAsFloat(strArray[18],sensor14Vector,indexI);
-		storeAsFloat(strArray[19],sensor15Vector,indexI);
-		storeAsFloat(strArray[20],sensor16Vector,indexI);
-		storeAsFloat(strArray[21],sensor17Vector,indexI);
-		storeAsFloat(strArray[22],sensor18Vector,indexI);
-		storeAsFloat(strArray[23],sensor19Vector,indexI);
-		storeAsFloat(strArray[24],sensor20Vector,indexI);
-		storeAsFloat(strArray[25],sensor21Vector,indexI);
-		return DATA_SUCCESS;
-	}
-
-	//
-	// Add a "bit" to a BitVector at the given index
-	// Very similar to storeAsInteger, but the only acceptable values are 0 or 1 or null
-	//
-	private void storeAsBit(String strI,BitVector vecI,int indexI) {
-		if ( (strI == null) || (strI.trim().isEmpty()) ) {
-			// Here's another way to do it
-			// vecI.setNull(indexI);
-			vecI.setSafe(indexI, 0, 0);
-			return;
-		}
-		Integer intVal = null;
-		String str = strI.trim();
-		try {
-			intVal = Integer.parseInt(str);
-		} catch (Exception e) {
-			intVal = null;
-		}
-		if ( (intVal == null) || ( (intVal != 0) && (intVal != 1) ) ) {
-			vecI.setSafe(indexI, 0, 0);
-		} else {
-			vecI.setSafe(indexI, intVal);
-		}
-	}
-
-	//
-	// Add int to an IntVector at the given index
-	//
-	private void storeAsInteger(String strI,IntVector vecI,int indexI) {
-		if ( (strI == null) || (strI.trim().isEmpty()) ) {
-			// Here's another way to do it
-			// vecI.setNull(indexI);
-			vecI.setSafe(indexI, 0, -999);
-			return;
-		}
-		Integer intVal = null;
-		String str = strI.trim();
-		try {
-			intVal = Integer.parseInt(str);
-		} catch (Exception e) {
-			intVal = null;
-		}
-		if (intVal == null) {
-			vecI.setSafe(indexI, 0, -999);
-		} else {
-			vecI.setSafe(indexI, intVal);
-		}
-	}
-
-	//
-	// Add long to a BigIntVector at the given index
-	//
-	private void storeAsLong(String strI,BigIntVector vecI,int indexI) {
-		if ( (strI == null) || (strI.trim().isEmpty()) ) {
-			// Here's another way to do it
-			// vecI.setNull(indexI);
-			vecI.setSafe(indexI, 0, -999);
-			return;
-		}
-		Long longVal = null;
-		String str = strI.trim();
-		try {
-			longVal = Long.parseLong(str);
-		} catch (Exception e) {
-			longVal = null;
-		}
-		if (longVal == null) {
-			vecI.setSafe(indexI, 0, -999);
-		} else {
-			vecI.setSafe(indexI, longVal);
-		}
-	}
-
-	//
-	// Add float to a Float4Vector at the given index
-	//
-	private void storeAsFloat(String strI,Float4Vector vecI,int indexI) {
-		if ( (strI == null) || (strI.trim().isEmpty()) ) {
-			// Here's another way to do it
-			// vecI.setNull(indexI);
-			vecI.setSafe(indexI, 0, -999);
-			return;
-		}
-		Float floatVal = null;
-		String str = strI.trim();
-		try {
-			floatVal = Float.parseFloat(str);
-		} catch (Exception e) {
-			floatVal = null;
-		}
-		if (floatVal == null) {
-			vecI.setSafe(indexI, 0, -999);
-		} else {
-			vecI.setSafe(indexI, floatVal);
-		}
-	}
-
-	//
-	// Add string data (as bytes) to a VarCharVector at the given index
-	//
-	private void storeAsStrBytes(String strI,VarCharVector vecI,int indexI) {
-		if ( (strI == null) || (strI.trim().isEmpty()) ) {
-			// NB: There's no "setSafe" function which includes the "isSet" argument for a VarCharVector
-			// Can either risk it and call the "setNull" function (which won't be good if our index is over the limit
-			// or we can just store a "n/a" string
-			// vecI.setNull(indexI);
-			vecI.setSafe(indexI, "n/a".getBytes(StandardCharsets.UTF_8));
-		} else {
-			vecI.setSafe(indexI, strI.trim().getBytes(StandardCharsets.UTF_8));
-		}
-	}
-	
 } //end class CT2Plasma
