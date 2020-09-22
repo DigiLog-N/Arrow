@@ -18,7 +18,13 @@ limitations under the License.
 
 OBD2Arrow
 
-Write data from a CSV input file out to an Arrow file
+Reads OBD data from an input file and write it out as Arrow record batches to an Arrow file.
+
+Sample input file: Data/OBD/v2/dailyRoutes.csv
+(I think this is a somewhat cleaned-up version of "exp1_14drivers_14cars_dailyRoutes.csv" from https://www.kaggle.com/cephasax/obdii-ds3?select=exp1_14drivers_14cars_dailyRoutes.csv)
+
+For the above sample input file, we have the corresponding output file at Data/OBD/v2/dailyRoutes.arrow
+(there are 100 data rows (records) per batch except for the last batch (which contains 28 rows); total of 951 batches)
 
 John Wilson, Erigo Technologies
 

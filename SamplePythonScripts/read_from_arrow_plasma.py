@@ -1,8 +1,8 @@
 
 #
-# Simple program to test reading objects from Plasma memory store
+# Simple program to test reading objects from Plasma memory store (located at "/tmp/plasma")
 #
-# This program works along with the "" Java test program
+# This program works along with the "ArrowPlasmaTestJava" Java test program
 #
 
 import pyarrow as pa
@@ -43,4 +43,3 @@ table = reader.read_all()
 print(table.column('int'))
 print(table.column('varchar'))
 print(table.column('boolean'))
-

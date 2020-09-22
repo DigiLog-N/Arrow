@@ -1,6 +1,6 @@
 
 #
-# Read Arrow data file using Python
+# Python script which reads Arrow data from a file; will read the Arrow file written out by our sample "ArrowTestJava" application.
 #
 # This is based on:
 # https://arrow.apache.org/docs/python/ipc.html

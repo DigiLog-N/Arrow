@@ -1,6 +1,6 @@
 
 #
-# Sample Python script demonstrating some Arrow API calls for reading an Arrow file
+# Python script which demonstrates reading from an Arrow file; will read data written out by the Java "OBD2Arrow" application.
 #
 # For further information:
 # https://arrow.apache.org/docs/python/ipc.html

@@ -18,7 +18,11 @@ limitations under the License.
 
 PHM08_to_Plasma
 
-Write data from a PHM08 input file out to Apache Plasma in-memory object store.
+Reads data from a PHM08 input file and writes it out to Apache Plasma in-memory object store.
+
+The PHM08 data is from the NASA jet engine prognostics challenge; from our shared repository, see Data/PHM08 or search for
+"PHM08 Challenge Data Set" at https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/#turbofan
+or go to https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/publications/#phm08_challenge
 
 John Wilson, Erigo Technologies
 

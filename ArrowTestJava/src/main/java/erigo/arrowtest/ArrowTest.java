@@ -18,6 +18,8 @@ limitations under the License.
 
 ArrowTest
 
+Simple Java program which writes Arrow record batches out to an Arrow file.
+
 John Wilson, Erigo Technologies
 
 Simple Java Arrow test, based on code snippets found at https://arrow.apache.org/docs/java/ipc.html
