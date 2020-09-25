@@ -66,6 +66,10 @@ public class IntDataContainer extends DataContainer {
             System.err.println("Channel " + arrow_chanName + ": didn't find timestamp " + timestampI + " in the given CTdata structure; store null");
             vec.setSafe(vec_indexI, 0, -999);
         } else {
+            // DEBUG
+            // if (arrow_chanName.equals("time")) {
+            //     System.err.println("unit[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
+            // }
             vec.setSafe(vec_indexI, data[data_index]);
         }
     }

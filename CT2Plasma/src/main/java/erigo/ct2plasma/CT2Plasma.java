@@ -60,15 +60,18 @@ public class CT2Plasma {
 
 	CTreader ctr = null;
 
-	int batchFlushPeriod_msec = 120000; // Time (msec) between flushing data to Plasma
+	int batchFlushPeriod_msec = 60000; // Time (msec) between flushing data to Plasma
 
 	// How many record batches we have written out?
 	int batchNum = 0;
 
+	// Input source name
+	// This is a command-line argument. Leave off the "CTdata" root folder.
+	String ct_sourceName = null;
+
 	// INPUT DATA THAT WILL CHANGE FROM SOURCE-TO-SOURCE
 	// NB: It is assumed that this source resides below a "CTdata" folder
 	// NB: Source name must be less than 13 characters
-	String ct_sourceName = "PHM08";
 	String[] ct_chanNames = {"unit.i32","time.i32","op1.f32","op2.f32","op3.f32","sensor01.f32","sensor02.f32","sensor03.f32","sensor04.f32","sensor05.f32","sensor06.f32","sensor07.f32","sensor08.f32","sensor09.f32","sensor10.f32","sensor11.f32","sensor12.f32","sensor13.f32","sensor14.f32","sensor15.f32","sensor16.f32","sensor17.f32","sensor18.f32","sensor19.f32","sensor20.f32","sensor21.f32"};
 	String[] arrow_chanNames = {"unit","time","op1","op2","op3","sensor01","sensor02","sensor03","sensor04","sensor05","sensor06","sensor07","sensor08","sensor09","sensor10","sensor11","sensor12","sensor13","sensor14","sensor15","sensor16","sensor17","sensor18","sensor19","sensor20","sensor21"};
 	DataType[] chanDataTypes = {DataType.INT_DATA,DataType.INT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA};
@@ -94,13 +97,14 @@ public class CT2Plasma {
 	// CT2Plasma constructor
 	// Everything happens in this method
 	//
-	public CT2Plasma(String ctsourceI) throws Exception {
+	public CT2Plasma(String ctSourceI) throws Exception {
 
 		// Check that the input arrays are all the same size
 		if ( (ct_chanNames.length != arrow_chanNames.length) || (ct_chanNames.length != chanDataTypes.length) ) {
 			throw new Exception("Input array size mismatch");
 		}
 
+		ct_sourceName = ctSourceI;
 		if (ct_sourceName.length() > 13) {
 			throw new Exception("CT source name is too long; must be 13 characters at most");
 		}
@@ -156,7 +160,7 @@ public class CT2Plasma {
 		long batchStartTime = System.currentTimeMillis();
 		double nextTimestamp = getOldestTimestamp(ct_chanNames[0]);
 		while (true) {
-			System.err.println("Next timestamp = " + nextTimestamp);
+			// System.err.println("Next timestamp = " + nextTimestamp);
 			// Create request CTmap
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
@@ -168,19 +172,41 @@ public class CT2Plasma {
 			} else {
 				addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
 				++recordsInBatch;
-				// Is it time to write data to Plasma? (We periodically flush data to Plasma.)
-				if ((System.currentTimeMillis() - batchStartTime) > batchFlushPeriod_msec) {
-					writeToPlasma(client, root, recordsInBatch);
-					recordsInBatch = 0;
-					// Reset vectors
-					for (int i = 0; i < arrow_chanNames.length; ++i) {
-						DataContainer dc = hashMap.get(arrow_chanNames[i]);
-						dc.reset();
-					}
-					batchStartTime = System.currentTimeMillis();
-				}
 			}
-			nextTimestamp = getNextTimestamp(ct_chanNames[0], nextTimestamp + 0.0001);
+			//
+			// Flush data (if it is time) and then get the next timestamp
+			// Do this in a loop until we have obtained a new timestamp
+			//
+			boolean bWaitForNextTimeStamp = true;
+			int loopCount = 0;
+			while (bWaitForNextTimeStamp) {
+				if (recordsInBatch > 0) {
+					// We have some data to write to Plasma; see if the time has arrived to do that
+					long currentTime = System.currentTimeMillis();
+					if ((currentTime - batchStartTime) > batchFlushPeriod_msec) {
+						System.err.println("FLUSH TO PLASMA AT TIME " + currentTime);
+						writeToPlasma(client, root, recordsInBatch);
+						recordsInBatch = 0;
+						// Reset vectors
+						for (int i = 0; i < arrow_chanNames.length; ++i) {
+							DataContainer dc = hashMap.get(arrow_chanNames[i]);
+							dc.reset();
+						}
+						batchStartTime = currentTime;
+					}
+				}
+				// getNextTimestamp() will return a negative number if time has not advanced yet
+				double candidateNextTimestamp = getNextTimestamp(ct_chanNames[0], nextTimestamp);
+				if (candidateNextTimestamp > 0) {
+					nextTimestamp = candidateNextTimestamp;
+					break;
+				}
+				++loopCount;
+				if ( (loopCount % 20) == 0 ) {
+					System.err.println("Waiting for next timestamp...");
+				}
+				Thread.sleep(500);
+			}
 		}
 	}
 
@@ -223,20 +249,18 @@ public class CT2Plasma {
 	}
 
 	//
-	// Get the next timestamp for the given channel.
-	// Do this in a sleepy loop until we receive data.
-	// Perform absolute data request for the given channel at the given timestamp and large duration
-	// Return the oldest timestamp from the received data
+	// Get the timestamp of the datapoint that comes *after* the given timestamp for the given channel.
 	//
 	private double getNextTimestamp(String chanNameI, double timebaseI) throws Exception {
-		while (true) {
-			CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI, 1000000, "absolute");
-			if (data != null) {
-				double[] dt = data.getTime();
+		double nextTimestamp = -1;
+		CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI+0.0001, 1000000, "absolute");
+		if (data != null) {
+			double[] dt = data.getTime();
+			if (dt[0] > timebaseI) {
 				return dt[0];
 			}
-			Thread.sleep(100);
 		}
+		return nextTimestamp;
 	}
 
 	//
