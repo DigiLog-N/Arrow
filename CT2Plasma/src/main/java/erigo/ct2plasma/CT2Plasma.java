@@ -142,20 +142,21 @@ public class CT2Plasma {
 		// Fetch data from CloudTurbine source and write it to Arrow + Plasma
 		//
 		// 1. Determine starting timestamp:
-		//      a. Request newest duration=0 data for the first channel
-		//      b. Determine the timestamp of the received data; this is our new timestamp to use
+		//      a. Request oldest duration=0 data for the first channel
+		//      b. Determine the timestamp of the received data; this is our starting timestamp
 		// 2. Request data for all channels at this timestamp, duration=0
 		// 3. Add received data to the data vectors
-		// 4. If enough time has passed, flush the data to Plasma
+		// 4. If enough time has passed (based on batchFlushPeriod_msec), flush the data to Plasma
 		// 5. Determine next timestamp:
 		//      a. Request data for the first channel at (latest_timestamp+0.0001) and large duration
-		//		b. Determine oldest timestamp in the received data; this is our new timestamp to use
+		//		b. Determine oldest timestamp in the received data; this is the next timestamp
 		// 6. Go back to step 2
 		//
 		int recordsInBatch = 0;
 		long batchStartTime = System.currentTimeMillis();
-		double nextTimestamp = getNewestTimestamp(ct_chanNames[0]);
+		double nextTimestamp = getOldestTimestamp(ct_chanNames[0]);
 		while (true) {
+			System.err.println("Next timestamp = " + nextTimestamp);
 			// Create request CTmap
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
@@ -191,10 +192,29 @@ public class CT2Plasma {
 		while (true) {
 			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, "newest");
 			if (data != null) {
-				// Since we are requesting the newest datapoint, should only be 1 timestamp
+				// Should only be 1 timestamp
 				double[] dt = data.getTime();
 				if (dt.length != 1) {
 					System.err.println("getNewestTimestamp(): length of time array = " + dt.length);
+				}
+				return dt[0];
+			}
+			Thread.sleep(100);
+		}
+	}
+
+	//
+	// Get the oldest timestamp for the given channel.
+	// Do this in a sleepy loop until we receive data.
+	//
+	private double getOldestTimestamp(String chanNameI) throws Exception {
+		while (true) {
+			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, "oldest");
+			if (data != null) {
+				// Should only be 1 timestamp
+				double[] dt = data.getTime();
+				if (dt.length != 1) {
+					System.err.println("getOldestTimestamp(): length of time array = " + dt.length);
 				}
 				return dt[0];
 			}
