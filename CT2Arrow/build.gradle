@@ -1,5 +1,5 @@
 //
-// Gradle build file for CT2Plasma project
+// Gradle build file for CT2Arrow project
 //
 
 apply plugin: 'java'
@@ -33,7 +33,7 @@ jar.doFirst {
     String runtimeDependenciesStr = sb.toString().trim()
     
     manifest {
-        attributes 'Main-Class': 'erigo.ct2plasma.CT2Plasma',
+        attributes 'Main-Class': 'erigo.ct2arrow.CT2Arrow',
                    'Class-Path': runtimeDependenciesStr
     }
 }

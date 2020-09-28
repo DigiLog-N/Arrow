@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package erigo.ct2plasma;
+package erigo.ct2arrow;
 
 import cycronix.ctlib.CTdata;
 import org.apache.arrow.memory.RootAllocator;
@@ -25,7 +25,7 @@ public class FloatDataContainer extends DataContainer {
     public Float4Vector vec;
 
     public FloatDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
-        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.FLOAT_DATA);
+        super(arrow_chanNameI, ct_chanNameI, CT2Arrow.DataType.FLOAT_DATA);
         vec = new Float4Vector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
         fieldVec = vec;
@@ -66,9 +66,10 @@ public class FloatDataContainer extends DataContainer {
             System.err.println("Channel " + arrow_chanName + ": didn't find timestamp " + timestampI + " in the given CTdata structure; store null");
             vec.setSafe(vec_indexI, 0, -999);
         } else {
-            if (arrow_chanName.equals("sensor21")) {
-                System.err.println("sensor21[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
-            }
+            // TEMPORARY DEBUG
+            // if (arrow_chanName.equals("sensor21")) {
+            //     System.err.println("sensor21[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
+            // }
             vec.setSafe(vec_indexI, data[data_index]);
         }
     }

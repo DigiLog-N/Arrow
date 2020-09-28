@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package erigo.ct2plasma;
+package erigo.ct2arrow;
 
 import cycronix.ctlib.CTdata;
 import org.apache.arrow.vector.FieldVector;
@@ -24,12 +24,12 @@ public abstract class DataContainer {
 
     public String arrow_chanName;  // name of the output channel for the Arrow record batch
     public String ct_chanName;     // name of the input CT channel
-    public CT2Plasma.DataType chanType;
+    public CT2Arrow.DataType chanType;
     public FieldVector fieldVec = null;
     public Field field = null;
     public CTdata ctData = null;
 
-    public DataContainer(String arrow_chanNameI, String ct_chanNameI, CT2Plasma.DataType chanTypeI) throws Exception {
+    public DataContainer(String arrow_chanNameI, String ct_chanNameI, CT2Arrow.DataType chanTypeI) throws Exception {
         if ( (arrow_chanNameI == null) || (arrow_chanNameI.isEmpty()) ) {
             throw new Exception("IntDataContainer: Illegal Arrow channel name");
         }

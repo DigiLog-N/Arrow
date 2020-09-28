@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package erigo.ct2plasma;
+package erigo.ct2arrow;
 
 import cycronix.ctlib.CTdata;
 import org.apache.arrow.memory.RootAllocator;
@@ -25,7 +25,7 @@ public class IntDataContainer extends DataContainer {
     public IntVector vec;
 
     public IntDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
-        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.INT_DATA);
+        super(arrow_chanNameI, ct_chanNameI, CT2Arrow.DataType.INT_DATA);
         vec = new IntVector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
         fieldVec = vec;
@@ -66,10 +66,10 @@ public class IntDataContainer extends DataContainer {
             System.err.println("Channel " + arrow_chanName + ": didn't find timestamp " + timestampI + " in the given CTdata structure; store null");
             vec.setSafe(vec_indexI, 0, -999);
         } else {
-            // DEBUG
-            // if (arrow_chanName.equals("time")) {
-            //     System.err.println("unit[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
-            // }
+            // TEMPORARY DEBUG
+            if (arrow_chanName.equals("time")) {
+                System.err.println("time[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
+            }
             vec.setSafe(vec_indexI, data[data_index]);
         }
     }

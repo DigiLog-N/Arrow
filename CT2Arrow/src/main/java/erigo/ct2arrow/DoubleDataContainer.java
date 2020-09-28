@@ -14,21 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package erigo.ct2plasma;
+package erigo.ct2arrow;
 
 import cycronix.ctlib.CTdata;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.Float8Vector;
 
-import java.nio.charset.StandardCharsets;
+public class DoubleDataContainer extends DataContainer {
 
-public class StringDataContainer extends DataContainer {
+    public Float8Vector vec;
 
-    public VarCharVector vec;
-
-    public StringDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
-        super(arrow_chanNameI, ct_chanNameI, CT2Plasma.DataType.STRING_DATA);
-        vec = new VarCharVector(arrow_chanName,allocatorI);
+    public DoubleDataContainer(String arrow_chanNameI, String ct_chanNameI, RootAllocator allocatorI) throws Exception {
+        super(arrow_chanNameI, ct_chanNameI, CT2Arrow.DataType.DOUBLE_DATA);
+        vec = new Float8Vector(arrow_chanName,allocatorI);
         vec.allocateNew(100);
         fieldVec = vec;
         field = vec.getField();
@@ -50,11 +48,11 @@ public class StringDataContainer extends DataContainer {
     //
     public void addDataToVector(CTdata ctDataI,int vec_indexI,double timestampI) {
         if (ctDataI == null) {
-            vec.setSafe(vec_indexI, "n/a".getBytes(StandardCharsets.UTF_8));
+            vec.setSafe(vec_indexI, 0, -999);
             return;
         }
         double[] times = ctDataI.getTime();
-        byte[][] data = ctDataI.getData();
+        double[] data = ctDataI.getDataAsFloat64();
         int data_index = -1;
         for (int i = 0; i<times.length; ++i) {
             if ( Math.abs(times[i] - timestampI) < 0.0001 ) {
@@ -66,11 +64,7 @@ public class StringDataContainer extends DataContainer {
         if (data_index == -1) {
             // Store null at this index in the vector
             System.err.println("Channel " + arrow_chanName + ": didn't find timestamp " + timestampI + " in the given CTdata structure; store null");
-            // NB: There's no "setSafe" function which includes the "isSet" argument for a VarCharVector
-            // Can either risk it and call the "setNull" function (which won't be good if our index is over the limit
-            // or we can just store a "n/a" string
-            // vec.setNull(indexI);
-            vec.setSafe(vec_indexI, "n/a".getBytes(StandardCharsets.UTF_8));
+            vec.setSafe(vec_indexI, 0, -999);
         } else {
             vec.setSafe(vec_indexI, data[data_index]);
         }
