@@ -42,7 +42,9 @@ import numpy as np
 
 client = plasma.connect("/tmp/plasma")
 client.list()
-id = plasma.ObjectID(20 * b'\x01')
+idstr = 'PHM08_unit_1*_b00001'
+idbytes = idstr.encode()
+id = plasma.ObjectID(idbytes)
 print(id)
 
 [data] = client.get_buffers([id])
@@ -66,11 +68,11 @@ while True:
         print('   schema:')
         print(batch.schema)
         # Display one of the columns of data
-        print('Data for the first channel (column 0):')
-        col = batch.column(0)
+        print('Data for the second channel (column 1):')
+        col = batch.column(1)
         print(col)
         # Another way to access the data:
-        print('All the data for the first channel:')
+        print('All the data for the second channel:')
         pl = col.to_pylist()
         for i in range(len(pl)):
             print('{:.4f}'.format(pl[i]))
