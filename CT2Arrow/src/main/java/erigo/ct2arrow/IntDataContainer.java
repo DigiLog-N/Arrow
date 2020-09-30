@@ -67,9 +67,9 @@ public class IntDataContainer extends DataContainer {
             vec.setSafe(vec_indexI, 0, -999);
         } else {
             // TEMPORARY DEBUG
-            if (arrow_chanName.equals("time")) {
-                System.err.println("time[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
-            }
+            // if (arrow_chanName.equals("time")) {
+            //     System.err.println("  Data on time channel: time[" + vec_indexI + "]: " + timestampI + "," + data[data_index]);
+            // }
             vec.setSafe(vec_indexI, data[data_index]);
         }
     }

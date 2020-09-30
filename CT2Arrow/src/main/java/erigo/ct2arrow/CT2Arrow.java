@@ -89,13 +89,14 @@ public class CT2Arrow {
 	// This is a command-line argument. Leave off the "CTdata" root folder.
 	String ct_sourceName = null;
 
-	// INPUT DATA THAT WILL CHANGE FROM SOURCE-TO-SOURCE
-
-	// String[] arrow_chanNames = {"unit","time","op1","op2","op3","sensor01","sensor02","sensor03","sensor04","sensor05","sensor06","sensor07","sensor08","sensor09","sensor10","sensor11","sensor12","sensor13","sensor14","sensor15","sensor16","sensor17","sensor18","sensor19","sensor20","sensor21"};
-	// DataType[] chanDataTypes = {DataType.INT_DATA,DataType.INT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA,DataType.FLOAT_DATA};
 	String[] ct_chanNames = null;
 	String[] arrow_chanNames = null;
 	DataType[] chanDataTypes = null;
+
+	// Create a separate container to hold CT timestamps
+	DoubleDataContainer ct_timestamp_dc = null;
+
+	String triggerChan = null;
 
 	//
 	// Main function
@@ -124,6 +125,7 @@ public class CT2Arrow {
 		options.addOption(Option.builder("s").argName("source name").hasArg().desc("Name of the CloudTurbine source to read data from; this source name can be up to 13 characters long.").build());
 		options.addOption(Option.builder("csplit").argName("channel name(s)").hasArg().desc("Comma-separated list of channel names; supported channel name suffixes and their associated data types: .txt (string), .i32 (32-bit integer), .f32 (32-bit floating point), .f64 (64-bit floating point).").build());
 		options.addOption(Option.builder("f").argName("flush time").hasArg().desc("Flush interval (msec); specifies amount of time between flushing data to Arrow file or Plasma object; must be an integer greater than or equal to 0; default = " + Integer.toString(flushPeriod_msec) + ".").build());
+		options.addOption(Option.builder("t").argName("trigger channel").hasArg().desc("Data will be flushed to Arrow file or Plasma object when the value of this CloudTurbine input channel changes. Periodic flush is still used as a secondary flushig mechanism. The specified channel must be one of the CloudTurbine input channels and it must have a \".i32\" extension.").build());
 		options.addOption("p", "plasma", false, "Write data to a Plasma object store; without this option (i.e. by default) output is written to Arrow file.");
 		options.addOption("x", "debug", false, "Debug mode.");
 
@@ -188,6 +190,23 @@ public class CT2Arrow {
 			throw new Exception("Channel name size mismatch");
 		}
 
+		if (line.hasOption("t")) {
+			triggerChan = line.getOptionValue("t");
+			// This channel must be one of the input CT channels
+			// Also, as a temporary limitation, this must be a ".i32" channel
+			boolean bValidChan = false;
+			for (int i = 0; i < ct_chanNames.length; ++i) {
+				if ( (triggerChan.equals(ct_chanNames[i])) && (triggerChan.endsWith(".i32")) ) {
+					bValidChan = true;
+					break;
+				}
+			}
+			if (!bValidChan) {
+				System.err.println("Error: the trigger channel must be one of the CloudTurbine input channels and it must have a \".i32\" extension.");
+				return;
+			}
+		}
+
 		try {
 			flushPeriod_msec = Integer.parseInt(line.getOptionValue("f", "" + flushPeriod_msec));
 		} catch (NumberFormatException nfe) {
@@ -214,6 +233,10 @@ public class CT2Arrow {
 		RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
 		ArrayList<Field> fields = new ArrayList<>();
 		ArrayList<FieldVector> vectors = new ArrayList<>();
+		// Create a separate container to hold CT timestamps
+		ct_timestamp_dc = new DoubleDataContainer("ct_timestamp", "ct_timestamp", allocator);
+		fields.add(ct_timestamp_dc.field);
+		vectors.add(ct_timestamp_dc.fieldVec);
 		for (int i = 0; i < arrow_chanNames.length; ++i) {
 			switch (chanDataTypes[i]) {
 				case INT_DATA:
@@ -242,22 +265,38 @@ public class CT2Arrow {
 		//
 		// Fetch data from CloudTurbine source and write it to Arrow file or Plasma
 		//
-		// 1. Determine starting timestamp:
-		//      a. Request oldest duration=0 data for the first channel
-		//      b. Determine the timestamp of the received data; this is our starting timestamp
+		// 1. Determine starting timestamp: Request oldest duration=0 data from either the first channel or
+		//    (if it is being used) the trigger channel; the timestamp associated with this datapoint is our
+		//    starting timestamp.
 		// 2. Request data for all channels at this timestamp, duration=0
-		// 3. Add received data to the data vectors
-		// 4. If enough time has passed (based on batchFlushPeriod_msec), flush the data to Arrow file or Plasma
-		// 5. Determine next timestamp:
-		//      a. Request data for the first channel at (latest_timestamp+0.0001) and large duration
-		//		b. Determine oldest timestamp in the received data; this is the next timestamp
-		// 6. Go back to step 2
+		// 3. Add received data to the data vectors in the DataContainer objects
+		// 4. In a sleepy loop:
+		//     a. Flush data if "flushPeriod_msec" has passed
+		//     b. Check for updated data: Request data from either the first channel or (if it is being used) the
+		//        trigger channel at time (latest_timestamp+0.0001) and large duration
+		//     c. If we got updated data:
+		//         i.  Save the new timestamp ("nextTimestamp")
+		//         ii. If we are using a trigger channel and the value of the trigger channel has changed, flush data
+		// 5. Go back to step 2
 		//
 		int recordsInBatch = 0;
+		int triggerChanValue = -1 * Integer.MAX_VALUE;
+		String timeRequestChanName = ct_chanNames[0];
+		if (triggerChan != null) {
+			timeRequestChanName = triggerChan;
+		}
+		CTdata oldestData = getDatapoint(timeRequestChanName, "oldest");
+		double[] times = oldestData.getTime();
+		double nextTimestamp = times[0];
+		if (triggerChan != null) {
+			// Save the starting value for the trigger channel
+			int[] data = oldestData.getDataAsInt32();
+			triggerChanValue = data[0];
+		}
 		long batchStartTime = System.currentTimeMillis();
-		double nextTimestamp = getOldestTimestamp(ct_chanNames[0]);
 		while (true) {
-			System.err.println("Next timestamp = " + nextTimestamp);
+			// Occasionally print out the new CT timestamp
+			System.err.println("Next CT timestamp = " + nextTimestamp);
 			// Create request CTmap
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
@@ -265,126 +304,157 @@ public class CT2Arrow {
 			}
 			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
 			if (dataMap == null) {
-				System.err.println("got null CTmap from our data request");
-			} else {
-				addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
-				++recordsInBatch;
+				throw new Exception("ERROR: got null CTmap from our data request");
 			}
+			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
+			++recordsInBatch;
 			//
-			// Flush data (if it is time) and then get the next timestamp
-			// Do this in a loop until we have obtained a new timestamp
+			// Do the following in a sleepy loop:
+			// 1. Flush data if "flushPeriod_msec" has passed
+			// 2. Check for updated data
+			// 3. If we got updated data:
+			//     a. Save the new timestamp ("nextTimestamp")
+			//     b. If we are using a trigger channel and the value of the trigger channel has changed, then flush data
 			//
-			boolean bWaitForNextTimeStamp = true;
 			int loopCount = 0;
-			while (bWaitForNextTimeStamp) {
+			while (true) {
 				if (recordsInBatch > 0) {
 					// We have some data to write to Arrow file or Plasma; see if the time has arrived to do that
 					long currentTime = System.currentTimeMillis();
 					if ((currentTime - batchStartTime) > flushPeriod_msec) {
 						if (bDebug) {
-							System.err.println("FLUSH DATA TO ARROW FILE OR PLASMA AT TIME " + currentTime);
+							System.err.println("\nFlush period has expired  ==>  Flush data");
 						}
-						try {
-							if (bPlasma) {
-								writeToPlasma(plasmaClient, root, recordsInBatch);
-							} else {
-								writeToArrowFile(root, recordsInBatch);
-							}
-						} catch (Exception e) {
-							System.err.println("Caught exception writing data to Arrow:");
-							System.err.println(e);
-						}
+						flushData(currentTime, plasmaClient, root, recordsInBatch);
 						recordsInBatch = 0;
-						// Reset vectors
-						for (int i = 0; i < arrow_chanNames.length; ++i) {
-							DataContainer dc = hashMap.get(arrow_chanNames[i]);
-							dc.reset();
-						}
 						batchStartTime = currentTime;
 					}
 				}
-				// getNextTimestamp() will return a negative number if time has not advanced yet
-				double candidateNextTimestamp = getNextTimestamp(ct_chanNames[0], nextTimestamp);
-				if (candidateNextTimestamp > 0) {
-					nextTimestamp = candidateNextTimestamp;
+				// See if new data is available
+				CTdata ctData = getNewData(timeRequestChanName, nextTimestamp);
+				if (ctData != null) {
+					times = ctData.getTime();
+					nextTimestamp = times[0];
+					if (triggerChan != null) {
+						// See if the trigger channel value has changed
+						int[] data = ctData.getDataAsInt32();
+						if (Math.abs(triggerChanValue - data[0]) != 0) {
+							// We got an updated trigger channel value; if there is data that has been stored, flush it
+							triggerChanValue = data[0];
+							if (bDebug) {
+								System.err.print("\nNew value on trigger channel \"" + triggerChan + "\": " + triggerChanValue);
+								if (recordsInBatch > 0) {
+									System.err.println("  ==>  Flush data");
+								} else {
+									System.err.println(" ");
+								}
+							}
+							if (recordsInBatch > 0) {
+								long currentTime = System.currentTimeMillis();
+								flushData(currentTime, plasmaClient, root, recordsInBatch);
+								recordsInBatch = 0;
+								batchStartTime = currentTime;
+							}
+						}
+					}
 					break;
 				}
 				++loopCount;
-				if ( (loopCount % 20) == 0 ) {
+				if ( (loopCount % 30) == 0 ) {
 					System.err.println("Waiting for next timestamp...");
 				}
-				Thread.sleep(250);
+				Thread.sleep(100);
 			}
 		}
 	}
 
 	//
-	// Get the newest timestamp for the given channel.
+	// Get either the oldest or newest datapoint for the given channel.
 	// Do this in a sleepy loop until we receive data.
 	//
-	private double getNewestTimestamp(String chanNameI) throws Exception {
+	// The given referenceI must either be "oldest" or "newest".
+	//
+	private CTdata getDatapoint(String chanNameI, String referenceI) throws Exception {
+		if ( (!referenceI.equals("oldest")) && (!referenceI.equals("newest")) ) {
+			throw new Exception("ERROR: getDatapoint(): referenceI must be oldest or newest");
+		}
+		int loopCtr = 0;
 		while (true) {
-			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, "newest");
-			if (data != null) {
-				// Should only be 1 timestamp
+			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, referenceI);
+			if ( (data != null) && (data.size() > 0) ) {
+				// Since we made a duration=0 request, should only have 1 datapoint
 				double[] dt = data.getTime();
 				if (dt.length != 1) {
-					System.err.println("getNewestTimestamp(): length of time array = " + dt.length);
+					throw new Exception("ERROR: getDatapoint(): length of time array = " + dt.length);
 				}
-				return dt[0];
+				return data;
+			}
+			++loopCtr;
+			if ( (loopCtr % 10) == 0) {
+				System.err.println("Waiting for " + referenceI + " data");
 			}
 			Thread.sleep(100);
 		}
 	}
 
 	//
-	// Get the oldest timestamp for the given channel.
-	// Do this in a sleepy loop until we receive data.
+	// Get the new data that comes *after* the given timestamp for the given channel.
 	//
-	private double getOldestTimestamp(String chanNameI) throws Exception {
-		while (true) {
-			CTdata data = ctr.getData(ct_sourceName, chanNameI, 0., 0.0, "oldest");
-			if (data != null) {
-				// Should only be 1 timestamp
-				double[] dt = data.getTime();
-				if (dt.length != 1) {
-					System.err.println("getOldestTimestamp(): length of time array = " + dt.length);
-				}
-				return dt[0];
-			}
-			Thread.sleep(100);
-		}
-	}
-
-	//
-	// Get the timestamp of the datapoint that comes *after* the given timestamp for the given channel.
-	//
-	private double getNextTimestamp(String chanNameI, double timebaseI) throws Exception {
-		double nextTimestamp = -1;
+	private CTdata getNewData(String chanNameI, double timebaseI) throws Exception {
 		CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI+0.0001, 1000000, "absolute");
 		if ( (data != null) && (data.size() > 0) ) {
 			double[] dt = data.getTime();
 			// Make sure time has advanced
 			if (dt[0] > timebaseI) {
-				return dt[0];
+				return data;
 			}
 		}
-		return nextTimestamp;
+		return null;
 	}
 
 	//
 	// Add data from the given CTmap to the Arrow vectors
 	//
 	private void addDataToVectors(CTmap dataMapI, int indexI, double timestampI) {
+
+		// Store CT timestamp
+		ct_timestamp_dc.addDataToVector(indexI, timestampI);
+
 		for (int i = 0; i < arrow_chanNames.length; ++i) {
 			DataContainer dc = hashMap.get(arrow_chanNames[i]);
 			CTdata ctData = null;
 			if (dataMapI.checkName(ct_chanNames[i])) {
-				ctData = dataMapI.get(ct_chanNames[i], timestampI, 0.0, "absolute");
+				// dataMapI should already be trimmed to the desired time-range; no need to do the time request again
+				// ctData = dataMapI.get(ct_chanNames[i], timestampI, 0.0, "absolute");
+				ctData = dataMapI.get(ct_chanNames[i]);
 			} else {
-				System.err.println("addDataToVectors(): No data for chan " + ct_chanNames[i] + "; add null");
+				System.err.println("WARNING: addDataToVectors(): No data for chan " + ct_chanNames[i] + "; add null");
 			}
 			dc.addDataToVector(ctData,indexI,timestampI);
+		}
+	}
+
+	//
+	//
+	//
+	private void flushData(long currentTimeI, PlasmaClient plasmaClientI, VectorSchemaRoot rootI, int recordsInBatchI) {
+		try {
+			if (bPlasma) {
+				System.err.println("FLUSH DATA TO PLASMA AT TIME " + currentTimeI);
+				writeToPlasma(plasmaClientI, rootI, recordsInBatchI);
+			} else {
+				System.err.println("FLUSH DATA TO ARROW FILE AT TIME " + currentTimeI);
+				writeToArrowFile(rootI, recordsInBatchI);
+			}
+		} catch (Exception e) {
+			System.err.println("Caught exception writing data to Arrow:");
+			System.err.println(e);
+		}
+		// Reset vectors
+		ct_timestamp_dc.reset();
+		for (int i = 0; i < arrow_chanNames.length; ++i) {
+			DataContainer dc = hashMap.get(arrow_chanNames[i]);
+			dc.reset();
 		}
 	}
 
@@ -393,6 +463,8 @@ public class CT2Arrow {
 	// Each output file will contain one record batch
 	//
 	private void writeToArrowFile(VectorSchemaRoot rootI, int recordsInBatchI) throws FileNotFoundException,IOException {
+
+		ct_timestamp_dc.setValueCount(recordsInBatchI);
 		for (int i = 0; i < arrow_chanNames.length; ++i) {
 			DataContainer dc = hashMap.get(arrow_chanNames[i]);
 			dc.setValueCount(recordsInBatchI);
@@ -415,6 +487,7 @@ public class CT2Arrow {
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
+
 	} // end writeToArrowFile()
 
 	//
@@ -422,6 +495,8 @@ public class CT2Arrow {
 	// Each Plasma object will contain one record batch
 	//
 	private void writeToPlasma(PlasmaClient clientI, VectorSchemaRoot rootI, int recordsInBatchI) {
+
+		ct_timestamp_dc.setValueCount(recordsInBatchI);
 		for (int i = 0; i < arrow_chanNames.length; ++i) {
 			DataContainer dc = hashMap.get(arrow_chanNames[i]);
 			dc.setValueCount(recordsInBatchI);
@@ -458,6 +533,7 @@ public class CT2Arrow {
 		} catch (IOException ioe) {
 			System.err.println(ioe);
 		}
+
 	} // end writeToPlasma()
 
 } //end class CT2Arrow

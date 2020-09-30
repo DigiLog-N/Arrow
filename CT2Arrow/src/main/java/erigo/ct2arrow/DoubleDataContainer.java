@@ -70,4 +70,11 @@ public class DoubleDataContainer extends DataContainer {
         }
     }
 
+    //
+    // Add a single datapoint to our vector.
+    //
+    public void addDataToVector(int vec_indexI, double valueI) {
+        vec.setSafe(vec_indexI, valueI);
+    }
+
 }
