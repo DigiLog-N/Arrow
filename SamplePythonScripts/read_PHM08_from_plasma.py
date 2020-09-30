@@ -42,14 +42,16 @@
 import pyarrow as pa
 import pyarrow.plasma as plasma
 import numpy as np
+import sys
 
 # Connect to Plasma
 client = plasma.connect("/tmp/plasma")
-print('IDs of available objects in the Plasma store:')
-client.list()
+# This returns a dictionary of the objects currently in the Plasma store
+# dict = client.list()
 
 # Fetch one object from Plasma
-idstr = 'PHM08********_b00001'
+# idstr = 'PHM08********_b00001'
+idstr = sys.argv[1]
 idbytes = idstr.encode()
 id = plasma.ObjectID(idbytes)
 
@@ -71,6 +73,6 @@ col = batch.column(1)
 pl_unit = col.to_pylist()
 col = batch.column(26)
 pl_sensor21 = col.to_pylist()
-for i in range(len(pl)):
+for i in range(len(pl_ct_timestamp)):
     print('{:.3f}\t{:d}\t{:.4f}'.format(pl_ct_timestamp[i],pl_unit[i],pl_sensor21[i]))
 
