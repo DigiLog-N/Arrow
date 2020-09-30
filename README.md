@@ -23,7 +23,9 @@ Sample Java programs and Python scripts for writing/reading to Arrow
   
   - read_OBD.py: Python script which demonstrates reading from an Arrow file; will read data written out by the Java "OBD2Arrow" application. 
   
-  - read_PHM08_from_plasma.py: Python script for reading record batches of PHM08 data from Apache Plasma in-memory data store; works with PHM08 data that has been written to Plasma by the Java program "PHM08_to_Plasma".
+  - read_PHM08_from_plasma.py: Python script for reading record batches of PHM08 data from Apache Plasma in-memory data store; works with PHM08 data that has been written to Plasma by the Java program "CT2Arrow".
+
+  - read_PHM08_from_plasma_OLD.py: Python script for reading record batches of PHM08 data from Apache Plasma in-memory data store; works with PHM08 data that has been written to Plasma by the Java program "PHM08_to_Plasma".
   
   - write_and_read_example.py: Python script which demonstrates simple example of writing data out to an Arrow file and reading it back in.
   
