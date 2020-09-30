@@ -1,11 +1,14 @@
 
 #
-# Commands for reading record batches of PHM08 data from Apache Plasma in-memory data store
+# Read PHM08 data from Apache Plasma in-memory data store
 #
-# This script shows sample commands for reading data from Plasma. Works with PHM08 data that has been
-# written to Plasma by the Java program "PHM08_to_Plasma". Data for each vehicle is saved in its own
-# record batch. The schema for these record batches is as follows:
+# This script shows sample commands for reading data from Plasma.
 #
+# Works with PHM08 data that has been written to Plasma by the CT2Arrow.
+#
+# The schema for these record batches is as follows:
+#
+# ct_timestamp: double
 # unit: int32
 # time_cycles: int32
 # op1: float
@@ -40,42 +43,34 @@ import pyarrow as pa
 import pyarrow.plasma as plasma
 import numpy as np
 
+# Connect to Plasma
 client = plasma.connect("/tmp/plasma")
+print('IDs of available objects in the Plasma store:')
 client.list()
-idstr = 'PHM08_unit_1*_b00001'
+
+# Fetch one object from Plasma
+idstr = 'PHM08********_b00001'
 idbytes = idstr.encode()
 id = plasma.ObjectID(idbytes)
-print(id)
 
+# Read data from the Plasma object
+# Each Plasma object written out from CT2Arrow only contains 1 record batch
+# Examine the data from this record batch
+# (see https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch)
 [data] = client.get_buffers([id])
 buffer = pa.BufferReader(data)
 reader = pa.RecordBatchStreamReader(buffer)
-# Show the schema for this record batch (contains the channel names and types)
-print(reader.schema)
+batch = reader.read_next_batch()
+print('number of columns = %d' %(batch.num_columns))
+print('number of rows = %d' % (batch.num_rows))
+print('schema:')
+print(batch.schema)
+col = batch.column(0)
+pl_ct_timestamp = col.to_pylist()
+col = batch.column(1)
+pl_unit = col.to_pylist()
+col = batch.column(26)
+pl_sensor21 = col.to_pylist()
+for i in range(len(pl)):
+    print('{:.3f}\t{:d}\t{:.4f}'.format(pl_ct_timestamp[i],pl_unit[i],pl_sensor21[i]))
 
-# Each record batch contains data for 1 unit from the PHM08 dataset.
-# Can iterate through the batches and get the columns of data for each batch
-batch_num = 0
-while True:
-    try:
-        batch_num = batch_num + 1
-        # Examine this record batch
-        # https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch
-        batch = reader.read_next_batch()
-        print('\nReading record batch number %d' % (batch_num))
-        print('   number of columns = %d' %(batch.num_columns))
-        print('   number of rows = %d' % (batch.num_rows))
-        print('   schema:')
-        print(batch.schema)
-        # Display one of the columns of data
-        print('Data for the second channel (column 1):')
-        col = batch.column(1)
-        print(col)
-        # Another way to access the data:
-        print('All the data for the second channel:')
-        pl = col.to_pylist()
-        for i in range(len(pl)):
-            print('{:.4f}'.format(pl[i]))
-    except StopIteration:
-        print("\nFinished reading the record batches!")
-        break
