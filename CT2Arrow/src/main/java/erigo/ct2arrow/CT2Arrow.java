@@ -123,7 +123,7 @@ public class CT2Arrow {
 		Options options = new Options();
 		options.addOption("h", "help", false, "Print this message.");
 		options.addOption(Option.builder("s").argName("source name").hasArg().desc("Name of the CloudTurbine source to read data from; this source name can be up to 13 characters long.").build());
-		options.addOption(Option.builder("csplit").argName("channel name(s)").hasArg().desc("Comma-separated list of channel names; supported channel name suffixes and their associated data types: .txt (string), .i32 (32-bit integer), .f32 (32-bit floating point), .f64 (64-bit floating point).").build());
+		options.addOption(Option.builder("chans").argName("channel name(s)").hasArg().desc("Comma-separated list of channel names; supported channel name suffixes and their associated data types: .txt (string), .i32 (32-bit integer), .f32 (32-bit floating point), .f64 (64-bit floating point).").build());
 		options.addOption(Option.builder("f").argName("flush time").hasArg().desc("Flush interval (msec); specifies amount of time between flushing data to Arrow file or Plasma object; must be an integer greater than or equal to 0; default = " + Integer.toString(flushPeriod_msec) + ".").build());
 		options.addOption(Option.builder("t").argName("trigger channel").hasArg().desc("Data will be flushed to Arrow file or Plasma object when the value of this CloudTurbine input channel changes. Periodic flush is still used as a secondary flushig mechanism. The specified channel must be one of the CloudTurbine input channels and it must have a \".i32\" extension.").build());
 		options.addOption("p", "plasma", false, "Write data to a Plasma object store; without this option (i.e. by default) output is written to Arrow file.");
@@ -155,11 +155,11 @@ public class CT2Arrow {
 			throw new Exception("CT source name is too long; must be 13 characters at most");
 		}
 
-		if (!line.hasOption("csplit")) {
+		if (!line.hasOption("chans")) {
 			System.err.println("Error: you must specify a comma-separated list of channel names");
 			return;
 		}
-		String chanNameL = line.getOptionValue("csplit");
+		String chanNameL = line.getOptionValue("chans");
 		ct_chanNames = chanNameL.split(",");
 		// Generate arrow_chanNames and chanDataTypes from ct_chanNames
 		arrow_chanNames = new String[ct_chanNames.length];
@@ -168,7 +168,7 @@ public class CT2Arrow {
 		for(int i=0; i<ct_chanNames.length; ++i) {
 			int dotIdx = ct_chanNames[i].lastIndexOf('.');
 			if ( (dotIdx < 0) || ( (dotIdx > -1) && (!ct_chanNames[i].endsWith(".txt")) && (!ct_chanNames[i].endsWith(".i32")) && (!ct_chanNames[i].endsWith(".f32")) && (!ct_chanNames[i].endsWith(".f64")) ) ) {
-				System.err.println("Error: illegal channel name specified in the \"-csplit\" list: " + ct_chanNames[i]);
+				System.err.println("Error: illegal channel name specified in the \"-chans\" list: " + ct_chanNames[i]);
 				System.err.println("\tMust have one of the accepted suffixes: .txt, .i32, .f32, or .f64");
 				return;
 			}

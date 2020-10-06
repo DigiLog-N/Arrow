@@ -6,7 +6,17 @@ Sample Java programs and Python scripts for writing/reading to Arrow
 
 2. ArrowTestJava: simple Java program which writes Arrow record batches to an Arrow file
 
-3. CT2Plasma: Java program which reads data from a CT source and writes it as record batch to a Plasma in-memory object store; this was the culmination of JPW's Java/Arrow development in the Phase I project
+3. CT2Arrow: Java program which reads data from a CT source and writes it as a record batch either to an Arrow output file ("*.arrow") or to a Plasma in-memory object store; this was the culmination of JPW's Java/Arrow development in the Phase I project.
+
+ - to build CT2Arrow:  ./gradlew build
+
+ - the JAR file is located at CT2Arrow/build/libs
+
+ - usage information is available by executing:  java  -jar CT2Arrow.jar  -help
+
+ - sample execute command; in this case, we read from CT source "PHM08", we trigger off CT channel "unit.i32", we write to Plasma (this is the "-p" option), we display debug information (this is the "-x" option), and we read in a total of 7 CT channels:
+
+java -jar CT2Arrow.jar -s PHM08 -t unit.i32 -p -x -chans "unit.i32,time.i32,op1.f32,op2.f32,op3.f32,sensor01.f32,sensor02.f32"
 
 4. OBD2Arrow: Java program which reads OBD data from an input file and write it out as Arrow record batches to an Arrow file
   - sample input file: Data/OBD/v2/dailyRoutes.csv (I think this is a somewhat cleaned-up version of "exp1_14drivers_14cars_dailyRoutes.csv" from https://www.kaggle.com/cephasax/obdii-ds3?select=exp1_14drivers_14cars_dailyRoutes.csv)
