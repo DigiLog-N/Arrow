@@ -22,11 +22,11 @@ java -jar CT2Arrow.jar -s PHM08 -t unit.i32 -p -x -chans "unit.i32,time.i32,op1.
 
  - Additional information to run CT2Arrow:
 
- * Set JAVA_HOME variable to /usr/lib/jvm/jdk-14.0.2; use this Java to run CT2Arrow
- * CTlib.jar is a dependency
- * The Plasma libraries aren't included with the Arrow distribution; need to compile Arrow from source (and specify one or two flags) for these libraries to get built
- * Specifically, according to https://stackoverflow.com/questions/53231052/apache-arrow-plasma-client-cant-connect-to-memory-store-unsatisfiedlinkerror, we need to have the following 3 libraries available on the system path: libplasma.so, libarrow.so, libplasma_java.so; all 3 of these are at /home/john/Apache_Arrow_repository/arrow/cpp/release/release
- * I made changes to .profile to implement the above items as shown below
+  * Set JAVA_HOME variable to /usr/lib/jvm/jdk-14.0.2; use this Java to run CT2Arrow
+  * CTlib.jar is a dependency
+  * The Plasma libraries aren't included with the Arrow distribution; need to compile Arrow from source (and specify one or two flags) for these libraries to get built
+  * Specifically, according to https://stackoverflow.com/questions/53231052/apache-arrow-plasma-client-cant-connect-to-memory-store-unsatisfiedlinkerror, we need to have the following 3 libraries available on the system path: libplasma.so, libarrow.so, libplasma_java.so; all 3 of these are at /home/john/Apache_Arrow_repository/arrow/cpp/release/release
+  * I made changes to .profile to implement the above items as shown below
 
  ```
 export JAVA_HOME=/usr/lib/jvm/jdk-14.0.2
