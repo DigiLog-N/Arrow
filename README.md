@@ -16,21 +16,25 @@ Sample Java programs and Python scripts for writing/reading to Arrow
 
  - sample execute command; in this case, we read from CT source "PHM08", we trigger off CT channel "unit.i32", we write to Plasma (this is the "-p" option), we display debug information (this is the "-x" option), and we read in a total of 7 CT channels:
 
-`java -jar CT2Arrow.jar -s PHM08 -t unit.i32 -p -x -chans "unit.i32,time.i32,op1.f32,op2.f32,op3.f32,sensor01.f32,sensor02.f32"`
+```
+java -jar CT2Arrow.jar -s PHM08 -t unit.i32 -p -x -chans "unit.i32,time.i32,op1.f32,op2.f32,op3.f32,sensor01.f32,sensor02.f32"
+```
 
  - Additional information to run CT2Arrow:
 
- -- Set JAVA_HOME variable to /usr/lib/jvm/jdk-14.0.2; use this Java to run CT2Arrow
- -- CTlib.jar is a dependency
- -- The Plasma libraries aren't included with the Arrow distribution; need to compile Arrow from source (and specify one or two flags) for these libraries to get built
- -- Specifically, according to https://stackoverflow.com/questions/53231052/apache-arrow-plasma-client-cant-connect-to-memory-store-unsatisfiedlinkerror, we need to have the following 3 libraries available on the system path: libplasma.so, libarrow.so, libplasma_java.so; all 3 of these are at /home/john/Apache_Arrow_repository/arrow/cpp/release/release
- -- I made the following changes in my .profile to implement the above items:
+ * Set JAVA_HOME variable to /usr/lib/jvm/jdk-14.0.2; use this Java to run CT2Arrow
+ * CTlib.jar is a dependency
+ * The Plasma libraries aren't included with the Arrow distribution; need to compile Arrow from source (and specify one or two flags) for these libraries to get built
+ * Specifically, according to https://stackoverflow.com/questions/53231052/apache-arrow-plasma-client-cant-connect-to-memory-store-unsatisfiedlinkerror, we need to have the following 3 libraries available on the system path: libplasma.so, libarrow.so, libplasma_java.so; all 3 of these are at /home/john/Apache_Arrow_repository/arrow/cpp/release/release
+ * I made changes to .profile to implement the above items as shown below
 
- `export JAVA_HOME=/usr/lib/jvm/jdk-14.0.2
+ ```
+export JAVA_HOME=/usr/lib/jvm/jdk-14.0.2
 # To compile CT applications
 export ctdev=/home/john/CTappsV1_1
 # Add Arrow libraries to path
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/john/Apache_Arrow_repository/arrow/cpp/release/release`
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/john/Apache_Arrow_repository/arrow/cpp/release/release
+```
 
 4. OBD2Arrow: Java program which reads OBD data from an input file and write it out as Arrow record batches to an Arrow file
   - sample input file: Data/OBD/v2/dailyRoutes.csv (I think this is a somewhat cleaned-up version of "exp1_14drivers_14cars_dailyRoutes.csv" from https://www.kaggle.com/cephasax/obdii-ds3?select=exp1_14drivers_14cars_dailyRoutes.csv)
