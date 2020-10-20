@@ -64,14 +64,14 @@ public class FloatDataContainer extends DataContainer {
         if (data_index == -1) {
             // Store null at this index in the vector
             System.err.println("Channel " + arrow_chanName + ": didn't find timestamp " + timestampI + " in the given CTdata structure; store null");
-            if (times.length == 0) {
-                System.err.println("\tThere were no times for this channel in CTdata");
-            } else {
-                System.err.println("\tAvailable timestamps:");
-                for (int i = 0; i<times.length; ++i) {
-                    System.err.println("\t" + times[i] + ", delta = " + Math.abs(times[i] - timestampI));
-                }
-            }
+            // if (times.length == 0) {
+            //     System.err.println("\tThere were no times for this channel in CTdata");
+            // } else {
+            //     System.err.println("\tAvailable timestamps:");
+            //     for (int i = 0; i<times.length; ++i) {
+            //         System.err.println("\t" + times[i] + ", delta = " + Math.abs(times[i] - timestampI));
+            //     }
+            // }
             vec.setSafe(vec_indexI, 0, -999);
         } else {
             // TEMPORARY DEBUG
