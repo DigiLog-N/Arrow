@@ -319,9 +319,30 @@ public class CT2Arrow {
 			for (int i = 0; i < ct_chanNames.length; ++i) {
 				requestMap.add(ct_chanNames[i]);
 			}
-			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
-			if (dataMap == null) {
-				throw new Exception("ERROR: got null CTmap from our data request");
+			// Try up to 5 times in a sleepy loop to get data on all channels at this exact timestamp
+			// Here's what we used to do:
+			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
+			// Here's the new code: make the request over a small duration;
+			//                      this avoids the "at or before" logic which occurs with duration=0 requests
+			CTmap dataMap = null;
+			for (int i = 0; i < 5; ++i) {
+				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+				if (dataMap == null) {
+					throw new Exception("ERROR: got null CTmap from our data request");
+				}
+				// See if we got all channels in this dataMap
+				boolean bMissingChan = false;
+				for (int j = 0; j < ct_chanNames.length; ++j) {
+					if (!dataMap.checkName(ct_chanNames[j])) {
+						bMissingChan = true;
+						Thread.sleep(250);
+						break;
+					}
+				}
+				if (!bMissingChan) {
+					System.err.println("At least one chan was missing from fetched data; try again");
+					break;
+				}
 			}
 			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
 			++recordsInBatch;
