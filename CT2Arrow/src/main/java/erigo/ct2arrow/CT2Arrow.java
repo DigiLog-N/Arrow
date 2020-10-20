@@ -76,6 +76,11 @@ public class CT2Arrow {
 	// Time (msec) between flushing data to Arrow file or Plasma
 	int flushPeriod_msec = 60000;
 
+	// How much data to request when determining the next timestamp.
+	// Good to keep this value smaller when walking through an existing CT source
+	// and larger when reading live data.
+	double next_timestamp_dur_sec = 1000000.0;
+
 	// Run in debug mode?
 	boolean bDebug = false;
 
@@ -126,6 +131,7 @@ public class CT2Arrow {
 		options.addOption(Option.builder("chans").argName("channel name(s)").hasArg().desc("Comma-separated list of channel names; supported channel name suffixes and their associated data types: .txt (string), .i32 (32-bit integer), .f32 (32-bit floating point), .f64 (64-bit floating point).").build());
 		options.addOption(Option.builder("f").argName("flush time").hasArg().desc("Flush interval (msec); specifies amount of time between flushing data to Arrow file or Plasma object; must be an integer greater than or equal to 0; default = " + Integer.toString(flushPeriod_msec) + ".").build());
 		options.addOption(Option.builder("t").argName("trigger channel").hasArg().desc("Data will be flushed to Arrow file or Plasma object when the value of this CloudTurbine input channel changes. Periodic flush is still used as a secondary flushig mechanism. The specified channel must be one of the CloudTurbine input channels and it must have a \".i32\" extension.").build());
+		options.addOption(Option.builder("d").argName("next timestamp duration").hasArg().desc("How much data (in seconds) to request when determining the next timestamp. Good to keep this value smaller when walking through an existing CT source and larger when reading live data; default = " + Double.toString(next_timestamp_dur_sec)).build());
 		options.addOption("p", "plasma", false, "Write data to a Plasma object store; without this option (i.e. by default) output is written to Arrow file.");
 		options.addOption("x", "debug", false, "Debug mode.");
 
@@ -215,6 +221,17 @@ public class CT2Arrow {
 		}
 		if (flushPeriod_msec < 0) {
 			System.err.println("Error: the flush period must be an integer greater than or equal to 0");
+			return;
+		}
+
+		try {
+			next_timestamp_dur_sec = Double.parseDouble(line.getOptionValue("d", "" + next_timestamp_dur_sec));
+		} catch (NumberFormatException nfe) {
+			System.err.println("Error: the next timestamp duration must be a number greater than 0");
+			return;
+		}
+		if (next_timestamp_dur_sec <= 0) {
+			System.err.println("Error: the next timestamp duration must be a number greater than 0");
 			return;
 		}
 
@@ -401,7 +418,7 @@ public class CT2Arrow {
 	// Get the new data that comes *after* the given timestamp for the given channel.
 	//
 	private CTdata getNewData(String chanNameI, double timebaseI) throws Exception {
-		CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI+0.0001, 1000000, "absolute");
+		CTdata data = ctr.getData(ct_sourceName, chanNameI, timebaseI+0.0001, next_timestamp_dur_sec, "absolute");
 		if ( (data != null) && (data.size() > 0) ) {
 			double[] dt = data.getTime();
 			// Make sure time has advanced
