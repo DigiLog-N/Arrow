@@ -335,12 +335,13 @@ public class CT2Arrow {
 				for (int j = 0; j < ct_chanNames.length; ++j) {
 					if (!dataMap.checkName(ct_chanNames[j])) {
 						bMissingChan = true;
+						System.err.println("\tAt least one chan was missing from fetched data; try again");
 						Thread.sleep(250);
 						break;
 					}
 				}
 				if (!bMissingChan) {
-					System.err.println("At least one chan was missing from fetched data; try again");
+					// We got data on all channels
 					break;
 				}
 			}
