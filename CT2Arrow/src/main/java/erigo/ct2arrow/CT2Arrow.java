@@ -340,7 +340,7 @@ public class CT2Arrow {
 					if (!dataMap.checkName(ct_chanNames[j])) {
 						bMissingChan = true;
 					} else {
-						CTdata ctData = dataMap.get(ct_chanNames[i]);
+						CTdata ctData = dataMap.get(ct_chanNames[j]);
 						double[] timestamps = ctData.getTime();
 						if ( (timestamps == null) || (timestamps.length == 0) || (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) ) {
 							bMissingChan = true;
