@@ -341,9 +341,13 @@ public class CT2Arrow {
 						bMissingChan = true;
 					} else {
 						CTdata ctData = dataMap.get(ct_chanNames[j]);
-						double[] timestamps = ctData.getTime();
-						if ( (timestamps == null) || (timestamps.length == 0) || (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) ) {
+						if (ctData == null) {
 							bMissingChan = true;
+						} else {
+							double[] timestamps = ctData.getTime();
+							if ((timestamps == null) || (timestamps.length == 0) || (Math.abs(timestamps[0] - nextTimestamp) > 0.0001)) {
+								bMissingChan = true;
+							}
 						}
 					}
 					if (bMissingChan) {
