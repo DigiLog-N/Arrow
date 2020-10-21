@@ -332,7 +332,7 @@ public class CT2Arrow {
 			// Make a non-zero duration request (over a small interval around nextTimestamp) to avoid the
 			// "at or before" data fetching.
 			CTmap dataMap = null;
-			for (int i = 0; i < 10; ++i) {
+			for (int i = 0; i < 4; ++i) {
 				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
 				// See if we got all channels in this dataMap
 				boolean bMissingChan = false;
@@ -355,7 +355,7 @@ public class CT2Arrow {
 					}
 					if (bMissingChan) {
 						System.err.println("\tAt least one chan was missing or had mis-aligned data; try again");
-						Thread.sleep(1000);
+						Thread.sleep(500);
 						break;
 					}
 				}
