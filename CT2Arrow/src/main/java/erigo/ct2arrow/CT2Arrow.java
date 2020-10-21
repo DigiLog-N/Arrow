@@ -319,44 +319,44 @@ public class CT2Arrow {
 			for (int i = 0; i < ct_chanNames.length; ++i) {
 				requestMap.add(ct_chanNames[i]);
 			}
-			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
-			if (dataMap == null) {
-				throw new Exception("ERROR: got null CTmap from our data request");
-			}
+			// Switch over to a non-zero duration to avoid at-or-before fetch logic
+			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
+			// if (dataMap == null) {
+			// 	throw new Exception("ERROR: got null CTmap from our data request");
+			// }
 			//
 			// We've noticed occasional issues (when processing the weather data transmitted by Syncthing)
 			// where the CTdata object for channels doesn't contain data for nextTimestamp but it does
-			// contain data for an earlier timestamp. I thought maybe the zero-duration request (like
-			// we do above) could cause this problem (since zero-duration requests can retrieve "at or before"),
-			// so I tried using a *non-zero* duration request like what is below. But this had the same problem!
-			// Even doing this non-zero duration request ended up occasionally fetching data on some channels
-			// at an earlier timestamp.
+			// contain data for an *earlier* timestamp.
 			//
-			// Make a non-zero duration request (over a small interval around nextTimestamp) to try and
-			// avoid the "at or before" data fetching.  Didn't work!
-			//
-			// Also, my thought was that if a channel is missing, then sleep a bit and try again; however,
-			// what I found is that all channels will be returned with data (even if the timestamp isn't
-			// right at nextTimestamp).
-			//
-			// CTmap dataMap = null;
-			// for (int i = 0; i < 5; ++i) {
-			// 	dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
-			// 	// See if we got all channels in this dataMap
-			// 	boolean bMissingChan = false;
-			// 	for (int j = 0; j < ct_chanNames.length; ++j) {
-			// 		if (!dataMap.checkName(ct_chanNames[j])) {
-			// 			bMissingChan = true;
-			// 			System.err.println("\tAt least one chan was missing from fetched data; try again");
-			// 			Thread.sleep(250);
-			// 			break;
-			// 		}
-			// 	}
-			// 	if (!bMissingChan) {
-			// 		// We got data on all channels
-			// 		break;
-			// 	}
-			// }
+			// Make a non-zero duration request (over a small interval around nextTimestamp) to avoid the
+			// "at or before" data fetching.
+			CTmap dataMap = null;
+			for (int i = 0; i < 5; ++i) {
+				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+				// See if we got all channels in this dataMap
+				boolean bMissingChan = false;
+				for (int j = 0; j < ct_chanNames.length; ++j) {
+					if (!dataMap.checkName(ct_chanNames[j])) {
+						bMissingChan = true;
+					} else {
+						CTdata ctData = dataMap.get(ct_chanNames[i]);
+						double[] timestamps = ctData.getTime();
+						if ( (timestamps == null) || (timestamps.length == 0) || (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) ) {
+							bMissingChan = true;
+						}
+					}
+					if (bMissingChan) {
+						System.err.println("\tAt least one chan was missing from fetched data; try again");
+						Thread.sleep(250);
+						break;
+					}
+				}
+				if (!bMissingChan) {
+					// We got data on all channels
+					break;
+				}
+			}
 			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
 			++recordsInBatch;
 			//
