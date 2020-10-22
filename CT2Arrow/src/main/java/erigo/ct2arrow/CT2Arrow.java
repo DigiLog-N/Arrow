@@ -333,7 +333,9 @@ public class CT2Arrow {
 			// "at or before" data fetching.
 			CTmap dataMap = null;
 			for (int i = 0; i < 4; ++i) {
-				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+				// to update cache on all channels, use a large duration
+				// was 0.0004, change to next_timestamp_dur_sec
+				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, next_timestamp_dur_sec, "absolute");
 				// See if we got all channels in this dataMap
 				boolean bMissingChan = false;
 				for (int j = 0; j < ct_chanNames.length; ++j) {
@@ -343,12 +345,18 @@ public class CT2Arrow {
 					} else {
 						CTdata ctData = dataMap.get(ct_chanNames[j]);
 						if (ctData == null) {
-							// System.err.println("ctData is null for channel " + ct_chanNames[j]);
+							System.err.println("ctData is null for channel " + ct_chanNames[j]);
 							bMissingChan = true;
 						} else {
 							double[] timestamps = ctData.getTime();
-							if ((timestamps == null) || (timestamps.length == 0) || (Math.abs(timestamps[0] - nextTimestamp) > 0.0001)) {
-								// System.err.println("bad timestamp for chanel " + ct_chanNames[j]);
+							if (timestamps == null) {
+								System.err.println("timestamps == null for chanel " + ct_chanNames[j]);
+								bMissingChan = true;
+							} else if (timestamps.length == 0) {
+								System.err.println("no timestamps for chanel " + ct_chanNames[j]);
+								bMissingChan = true;
+							} else if (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) {
+								System.err.println("timestamp for chanel " + ct_chanNames[j] + " is off from nextTimestamp by " + Math.abs(timestamps[0] - nextTimestamp));
 								bMissingChan = true;
 							}
 						}
