@@ -318,58 +318,43 @@ public class CT2Arrow {
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
 				requestMap.add(ct_chanNames[i]);
+				// Update channel cache
+				ctr.clearFileListCache(ct_chanNames[i]);
 			}
-			// Switch over to a non-zero duration to avoid at-or-before fetch logic
+			//
+			// OPTION 1: absolute, zero-duration request; problem is that this can invoke the "at-or-before" logic
 			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
 			// if (dataMap == null) {
 			// 	throw new Exception("ERROR: got null CTmap from our data request");
 			// }
 			//
+			// Switch over to a non-zero duration to avoid at-or-before fetch logic
 			// We've noticed occasional issues (when processing the weather data transmitted by Syncthing)
 			// where the CTdata object for channels doesn't contain data for nextTimestamp but it does
 			// contain data for an *earlier* timestamp.
 			//
-			// Make a non-zero duration request (over a small interval around nextTimestamp) to avoid the
-			// "at or before" data fetching.
-			CTmap dataMap = null;
-			for (int i = 0; i < 4; ++i) {
-				// to update cache on all channels, use a large duration
-				// dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
-				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, next_timestamp_dur_sec, "after");
-				// See if we got all channels in this dataMap
-				boolean bMissingChan = false;
-				for (int j = 0; j < ct_chanNames.length; ++j) {
-					if (!dataMap.checkName(ct_chanNames[j])) {
-						System.err.println("missing chan = " + ct_chanNames[j]);
-						bMissingChan = true;
+			// OPTION 2: Make a non-zero duration request (over a small interval around nextTimestamp) to avoid "at or before" data fetching.
+			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+			// OPTION 3: To update cache on all channels, use a large duration
+			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp-0.0002, next_timestamp_dur_sec, "after");
+			// See if we got all channels in this dataMap
+			for (int i = 0; i < ct_chanNames.length; ++i) {
+				if (!dataMap.checkName(ct_chanNames[i])) {
+					System.err.println("missing chan = " + ct_chanNames[i]);
+				} else {
+					CTdata ctData = dataMap.get(ct_chanNames[i]);
+					if (ctData == null) {
+						System.err.println("ctData is null for channel " + ct_chanNames[i]);
 					} else {
-						CTdata ctData = dataMap.get(ct_chanNames[j]);
-						if (ctData == null) {
-							System.err.println("ctData is null for channel " + ct_chanNames[j]);
-							bMissingChan = true;
-						} else {
-							double[] timestamps = ctData.getTime();
-							if (timestamps == null) {
-								System.err.println("timestamps == null for chanel " + ct_chanNames[j]);
-								bMissingChan = true;
-							} else if (timestamps.length == 0) {
-								System.err.println("no timestamps for chanel " + ct_chanNames[j]);
-								bMissingChan = true;
-							} else if (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) {
-								System.err.println("timestamp for chanel " + ct_chanNames[j] + " is off from nextTimestamp by " + Math.abs(timestamps[0] - nextTimestamp));
-								bMissingChan = true;
-							}
+						double[] timestamps = ctData.getTime();
+						if (timestamps == null) {
+							System.err.println("timestamps == null for chanel " + ct_chanNames[i]);
+						} else if (timestamps.length == 0) {
+							System.err.println("no timestamps for chanel " + ct_chanNames[i]);
+						} else if (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) {
+							System.err.println("timestamp for chanel " + ct_chanNames[i] + " is off from nextTimestamp by " + (timestamps[0] - nextTimestamp));
 						}
 					}
-					if (bMissingChan) {
-						System.err.println("\tAt least one chan was missing or had mis-aligned data; try again");
-						Thread.sleep(500);
-						break;
-					}
-				}
-				if (!bMissingChan) {
-					// We got data on all channels
-					break;
 				}
 			}
 			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
