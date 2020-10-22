@@ -311,16 +311,19 @@ public class CT2Arrow {
 			triggerChanValue = data[0];
 		}
 		long batchStartTime = System.currentTimeMillis();
+		CTdata[] chanData = new CTdata[ct_chanNames.length];
 		while (true) {
-			// Occasionally print out the new CT timestamp
 			System.err.println("Next CT timestamp = " + nextTimestamp);
+
+
+			/*
 			// Create request CTmap
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
 				requestMap.add(ct_chanNames[i]);
-				// Update channel cache
-				ctr.clearFileListCache(ct_chanNames[i]);
 			}
+			// Update channel cache
+			ctr.clearFileListCache();
 			//
 			// OPTION 1: absolute, zero-duration request; problem is that this can invoke the "at-or-before" logic
 			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
@@ -358,6 +361,16 @@ public class CT2Arrow {
 				}
 			}
 			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
+			*/
+
+
+			for (int i = 0; i < ct_chanNames.length; ++i) {
+				chanData[i] = ctr.getData(ct_sourceName, ct_chanNames[i], nextTimestamp - 0.0002, next_timestamp_dur_sec, "absolute");
+			}
+			addDataToVectors(chanData, recordsInBatch, nextTimestamp);
+
+
+
 			++recordsInBatch;
 			//
 			// Do the following in a sleepy loop:
@@ -481,6 +494,21 @@ public class CT2Arrow {
 			} else {
 				System.err.println("WARNING: addDataToVectors(): No data for chan " + ct_chanNames[i] + "; add null");
 			}
+			dc.addDataToVector(ctData,indexI,timestampI);
+		}
+	}
+
+	//
+	// Add data from the given array of CTdata objects to the Arrow vectors
+	//
+	private void addDataToVectors(CTdata[] chanDataI, int indexI, double timestampI) {
+
+		// Store CT timestamp
+		ct_timestamp_dc.addDataToVector(indexI, timestampI);
+
+		for (int i = 0; i < arrow_chanNames.length; ++i) {
+			DataContainer dc = hashMap.get(arrow_chanNames[i]);
+			CTdata ctData = chanDataI[i];
 			dc.addDataToVector(ctData,indexI,timestampI);
 		}
 	}
