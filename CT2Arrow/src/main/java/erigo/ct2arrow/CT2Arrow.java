@@ -334,8 +334,8 @@ public class CT2Arrow {
 			CTmap dataMap = null;
 			for (int i = 0; i < 4; ++i) {
 				// to update cache on all channels, use a large duration
-				// was 0.0004, change to next_timestamp_dur_sec
-				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, next_timestamp_dur_sec, "absolute");
+				// dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+				dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, next_timestamp_dur_sec, "after");
 				// See if we got all channels in this dataMap
 				boolean bMissingChan = false;
 				for (int j = 0; j < ct_chanNames.length; ++j) {
