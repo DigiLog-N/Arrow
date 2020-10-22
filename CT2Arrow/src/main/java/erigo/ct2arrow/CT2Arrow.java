@@ -340,7 +340,7 @@ public class CT2Arrow {
 				boolean bMissingChan = false;
 				for (int j = 0; j < ct_chanNames.length; ++j) {
 					if (!dataMap.checkName(ct_chanNames[j])) {
-						// System.err.println("missing chan = " + ct_chanNames[j]);
+						System.err.println("missing chan = " + ct_chanNames[j]);
 						bMissingChan = true;
 					} else {
 						CTdata ctData = dataMap.get(ct_chanNames[j]);
