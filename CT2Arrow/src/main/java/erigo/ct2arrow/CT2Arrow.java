@@ -373,7 +373,7 @@ public class CT2Arrow {
 					break;
 				} else {
 					// Try again
-					Thread.sleep(250);
+					Thread.sleep(100);
 					ctr.clearFileListCache();
 				}
 			}
