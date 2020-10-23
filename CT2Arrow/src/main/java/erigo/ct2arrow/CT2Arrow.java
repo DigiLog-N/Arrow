@@ -285,7 +285,7 @@ public class CT2Arrow {
 		// 1. Determine starting timestamp: Request oldest duration=0 data from either the first channel or
 		//    (if it is being used) the trigger channel; the timestamp associated with this datapoint is our
 		//    starting timestamp.
-		// 2. Request data for all channels at this timestamp, duration=0
+		// 2. Request data for all channels at this timestamp
 		// 3. Add received data to the data vectors in the DataContainer objects
 		// 4. In a sleepy loop:
 		//     a. Flush data if "flushPeriod_msec" has passed
@@ -311,66 +311,73 @@ public class CT2Arrow {
 			triggerChanValue = data[0];
 		}
 		long batchStartTime = System.currentTimeMillis();
-		CTdata[] chanData = new CTdata[ct_chanNames.length];
 		while (true) {
 			System.err.println("Next CT timestamp = " + nextTimestamp);
-
-
-			/*
 			// Create request CTmap
 			CTmap requestMap = new CTmap();
 			for (int i = 0; i < ct_chanNames.length; ++i) {
 				requestMap.add(ct_chanNames[i]);
 			}
-			// Update channel cache
-			ctr.clearFileListCache();
-			//
 			// OPTION 1: absolute, zero-duration request; problem is that this can invoke the "at-or-before" logic
 			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp, 0.0, "absolute");
 			// if (dataMap == null) {
 			// 	throw new Exception("ERROR: got null CTmap from our data request");
 			// }
 			//
-			// Switch over to a non-zero duration to avoid at-or-before fetch logic
-			// We've noticed occasional issues (when processing the weather data transmitted by Syncthing)
-			// where the CTdata object for channels doesn't contain data for nextTimestamp but it does
-			// contain data for an *earlier* timestamp.
-			//
 			// OPTION 2: Make a non-zero duration request (over a small interval around nextTimestamp) to avoid "at or before" data fetching.
 			CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp - 0.0002, 0.0004, "absolute");
+			//
 			// OPTION 3: To update cache on all channels, use a large duration
 			// CTmap dataMap = ctr.getDataMap(requestMap, ct_sourceName, nextTimestamp-0.0002, next_timestamp_dur_sec, "after");
-			// See if we got all channels in this dataMap
-			for (int i = 0; i < ct_chanNames.length; ++i) {
-				if (!dataMap.checkName(ct_chanNames[i])) {
-					System.err.println("missing chan = " + ct_chanNames[i]);
-				} else {
-					CTdata ctData = dataMap.get(ct_chanNames[i]);
-					if (ctData == null) {
-						System.err.println("ctData is null for channel " + ct_chanNames[i]);
+			//
+			// OPTION 4: make individual requests on each channel rather than use multi-chanel CTmap request
+			// for (int i = 0; i < ct_chanNames.length; ++i) {
+			// 	chanData[i] = ctr.getData(ct_sourceName, ct_chanNames[i], nextTimestamp - 0.0002, next_timestamp_dur_sec, "absolute");
+			// }
+			//
+			// We've noticed occasional issues (when processing the weather data transmitted via Syncthing)
+			// where the CTdata object for channels doesn't contain data at nextTimestamp
+			boolean bMissingData = false;
+			for (int loopIdx = 0; loopIdx < 2; ++loopIdx) {
+				for (int i = 0; i < ct_chanNames.length; ++i) {
+					if (!dataMap.checkName(ct_chanNames[i])) {
+						System.err.println("missing chan = " + ct_chanNames[i]);
+						bMissingData = true;
+						break;
 					} else {
-						double[] timestamps = ctData.getTime();
-						if (timestamps == null) {
-							System.err.println("timestamps == null for chanel " + ct_chanNames[i]);
-						} else if (timestamps.length == 0) {
-							System.err.println("no timestamps for chanel " + ct_chanNames[i]);
-						} else if (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) {
-							System.err.println("timestamp for chanel " + ct_chanNames[i] + " is off from nextTimestamp by " + (timestamps[0] - nextTimestamp));
+						CTdata ctData = dataMap.get(ct_chanNames[i]);
+						if (ctData == null) {
+							System.err.println("ctData is null for channel " + ct_chanNames[i]);
+							bMissingData = true;
+							break;
+						} else {
+							double[] timestamps = ctData.getTime();
+							if (timestamps == null) {
+								System.err.println("timestamps == null for chanel " + ct_chanNames[i]);
+								bMissingData = true;
+								break;
+							} else if (timestamps.length == 0) {
+								System.err.println("no timestamps for chanel " + ct_chanNames[i]);
+								bMissingData = true;
+								break;
+							} else if (Math.abs(timestamps[0] - nextTimestamp) > 0.0001) {
+								System.err.println("timestamp for chanel " + ct_chanNames[i] + " is off from nextTimestamp by " + (timestamps[0] - nextTimestamp));
+								bMissingData = true;
+								break;
+							}
 						}
 					}
 				}
+				if (!bMissingData) {
+					// We're good, got all data
+					break;
+				} else {
+					// Try again
+					Thread.sleep(250);
+					ctr.clearFileListCache();
+				}
 			}
 			addDataToVectors(dataMap, recordsInBatch, nextTimestamp);
-			*/
-
-
-			for (int i = 0; i < ct_chanNames.length; ++i) {
-				chanData[i] = ctr.getData(ct_sourceName, ct_chanNames[i], nextTimestamp - 0.0002, next_timestamp_dur_sec, "absolute");
-			}
-			addDataToVectors(chanData, recordsInBatch, nextTimestamp);
-
-
-
 			++recordsInBatch;
 			//
 			// Do the following in a sleepy loop:
