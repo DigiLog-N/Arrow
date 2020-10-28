@@ -6,6 +6,10 @@
 #
 # Works with PHM08 data that has been written to Plasma by the CT2Arrow.
 #
+# Usage:
+#    python3 read_PHM08_from_plasma.py <plasma store> <plasma object ID>
+#    e.g.  python3  read_PHM08_from_plasma.py  /tmp/plasma  PHM08********_b00001
+#
 # The schema for these record batches is as follows:
 #
 # ct_timestamp: double
@@ -45,13 +49,13 @@ import numpy as np
 import sys
 
 # Connect to Plasma
-client = plasma.connect("/tmp/plasma")
+client = plasma.connect(sys.argv[1])
 # This returns a dictionary of the objects currently in the Plasma store
 # dict = client.list()
 
 # Fetch one object from Plasma
 # idstr = 'PHM08********_b00001'
-idstr = sys.argv[1]
+idstr = sys.argv[2]
 idbytes = idstr.encode()
 id = plasma.ObjectID(idbytes)
 
